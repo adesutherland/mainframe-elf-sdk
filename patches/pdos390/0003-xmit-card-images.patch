@@ -1,0 +1,23 @@
+--- a/pdld/src/xmit.c
++++ b/pdld/src/xmit.c
+@@ -124,8 +124,9 @@
+ {
+     /* Trailer control record. */
+     file_size += SIZEOF_struct_segment_header_file + 6;
+-    /* Final padding to multiple of 16. */
+-    file_size = ALIGN (file_size, 16);
++    /* TSO RECEIVE reads card images. Preserve each logical segment stream,
++     * then finish the physical file on an 80-byte record boundary. */
++    file_size = ALIGN (file_size, 80);
+ 
+     return file_size;
+ }
+@@ -345,7 +346,7 @@
+     str_tebc (pos + 2, "INMR06");
+     pos += 8;
+ 
+-    /* Final padding to 16-byte boundary. */
++    /* Pad the last physical card with EBCDIC blanks. */
+     while (pos < file + file_size) pos++[0] = tebc (' ');
+ 
+     return pos;

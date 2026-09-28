@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "name": "tso-zos64-v1",
+  "status": "in-development",
+  "object_identity": "MLAB1;isa=z900;addr=64;abi=s390x-lp64-v1;chars=utf8;svc=mvs64-bridge1;profile=tso-zos64-v1",
+  "instruction_contract": {
+    "compiler": "GCC16.2 -m64 -mzarch -march=z900 -msoft-float -mno-vx",
+    "encoder": "GNU binutils2.47 -m64 -march=z900",
+    "validation": "GNU target selection and exact object identity; no independent whole-ISA decoder claimed"
+  },
+  "abi": {
+    "id": "s390x-lp64-v1",
+    "byte_order": "big",
+    "int_bits": 32,
+    "long_pointer_bits": 64,
+    "stack_alignment": 8,
+    "caller_area_bytes": 160,
+    "arguments": "R2-R6",
+    "result": "R2",
+    "preserved": "R6-R13,R15; software floating point"
+  },
+  "formats": {
+    "objects": "ELF64 big-endian EM_S390",
+    "image_placement": "default RMODE ANY image below 2 GiB; high heap/data via IARV64",
+    "identity_section": ".lab.profile",
+    "boundary": "native AMODE31 entry switches to64-bit C; low-word relocations for checked below-bar image pointers",
+    "rmode_any_package": "accepted bounded z/OS 1.5 application route; code remains below 2 GiB",
+    "rmode64_package": "separate low-launcher/high-code route reviewed with two-placement PDOS problem-state execution; modern z/OS execution unverified"
+  },
+  "compatibility": {
+    "rule": "exact identity only",
+    "other_profiles": []
+  },
+  "exclusions": [
+    "IBM LE ABI",
+    "code above 2 GiB without the explicit low launcher and checked high-entry route",
+    "CMS services",
+    "reentrant or shared deployment",
+    "general or modern z/OS RMODE64 application qualification"
+  ]
+}

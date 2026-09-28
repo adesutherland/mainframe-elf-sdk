@@ -1,0 +1,49 @@
+diff --git a/gcc/config/s390/s390.md b/gcc/config/s390/s390.md
+index 29c85fa1fa7973839f5b9f4b17a971332e0581da..c3a3929bc328ed1525fbc9f37aca6abaa99ea98f 100644
+--- a/gcc/config/s390/s390.md
++++ b/gcc/config/s390/s390.md
+@@ -9944,7 +9944,7 @@
+   [(set (match_operand:GPR 0 "register_operand" "")
+         (rotate:GPR (match_operand:GPR 1 "register_operand" "")
+ 		    (match_operand:QI 2 "shift_count_operand" "")))]
+-  ""
++  "!TARGET_S370"
+   "")
+ 
+ ; rll, rllg
+@@ -9952,7 +9952,7 @@
+   [(set (match_operand:GPR             0 "register_operand"  "=d")
+ 	(rotate:GPR (match_operand:GPR 1 "register_operand"   "d")
+ 		    (match_operand:QI  2 "shift_count_operand" "jsc")))]
+-  ""
++  "!TARGET_S370"
+   "rll<g>\t%0,%1,%Y2"
+   [(set_attr "op_type"  "RSE")
+    (set_attr "atype"    "reg")
+@@ -12444,7 +12444,7 @@
+ (define_insn "bswap<mode>2"
+   [(set (match_operand:GPR 0            "nonimmediate_operand" "=d,d,T")
+ 	(bswap:GPR (match_operand:GPR 1 "nonimmediate_operand" " d,T,d")))]
+-  ""
++  "!TARGET_S370"
+   "@
+    lrv<g>r\t%0,%1
+    lrv<g>\t%0,%1
+@@ -12456,7 +12456,7 @@
+ (define_insn "bswaphi2"
+   [(set (match_operand:HI 0           "nonimmediate_operand" "=d,d,T")
+ 	(bswap:HI (match_operand:HI 1 "nonimmediate_operand" " d,T,d")))]
+-  ""
++  "!TARGET_S370"
+   "@
+    #
+    lrvh\t%0,%1
+@@ -12468,7 +12468,7 @@
+ (define_split
+   [(set (match_operand:HI 0           "register_operand" "")
+ 	(bswap:HI (match_operand:HI 1 "register_operand" "")))]
+-  ""
++  "!TARGET_S370"
+   [(set (match_dup 2) (bswap:SI (match_dup 3)))
+    (set (match_dup 2) (lshiftrt:SI (match_dup 2) (const_int 16)))]
+ {

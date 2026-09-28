@@ -1,0 +1,14 @@
+/build/
+/SOURCE-MANIFEST.json.tmp
+*.o
+*.a
+*.elf
+*.module
+*.obj
+*.XMI
+*.tar.gz
+*.tar.xz
+__pycache__/
+*.pyc
+.DS_Store
+._*

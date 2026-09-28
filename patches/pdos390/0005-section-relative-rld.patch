@@ -1,0 +1,16 @@
+--- a/pdld/src/mainframe.c
++++ b/pdld/src/mainframe.c
+@@ -975,8 +975,11 @@
+                     }
+                     /* CESD index for source section. */
+                     bytearray_write_2_bytes (pos + 2, part->section->target_index, BIG_ENDIAN);
+-                    /* 24-bit address in the compacted load image. */
+-                    bytearray_write_3_bytes (pos + 5, reloc->offset + part->rva, BIG_ENDIAN);
++                    /* RLD addresses are relative to their source CESD. The
++                     * loader adds that section's position in the image. */
++                    bytearray_write_3_bytes (pos + 5,
++                                             reloc->offset + part->rva - part->section->rva,
++                                             BIG_ENDIAN);
+                     if (reloc->howto == &reloc_howtos[RELOC_TYPE_64]) {
+                         pos[4] = 0x5C;
+                     } else if (reloc->howto == &reloc_howtos[RELOC_TYPE_32]) {

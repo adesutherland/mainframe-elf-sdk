@@ -1,0 +1,128 @@
+diff --git a/gcc/config/s370/s370-protos.h b/gcc/config/s370/s370-protos.h
+index df426e4c5bae6dd528aabc9dfd3a32af950158a2..f4e11b07cb933814c026f7026c77d3a87f178847 100644
+--- a/gcc/config/s370/s370-protos.h
++++ b/gcc/config/s370/s370-protos.h
+@@ -10,6 +10,7 @@
+ 
+ extern const char *s390_output_s370_ri (const char *, rtx, rtx);
+ extern const char *s390_output_s370_base (rtx, rtx);
+-extern const char *s390_output_s370_jump (rtx, rtx);
++extern const char *s390_output_s370_jump (rtx, rtx, bool = false);
++extern const char *s390_output_s370_di_arithmetic (rtx, rtx, bool);
+ extern void s390_s370_override_options (struct gcc_options *);
+ extern void s390_s370_select_profile (struct gcc_options *, struct gcc_options *);
+diff --git a/gcc/config/s370/s370.cc b/gcc/config/s370/s370.cc
+index 7cba653b27efd4be1c9ee75bec4860b2f26f1446..da967ad87a56e7a23c7ff3abbcd5a6ad276d9638 100644
+--- a/gcc/config/s370/s370.cc
++++ b/gcc/config/s370/s370.cc
+@@ -45,9 +45,10 @@ s390_output_s370_base (rtx reg, rtx label)
+ }
+ 
+ const char *
+-s390_output_s370_jump (rtx label, rtx condition)
++s390_output_s370_jump (rtx label, rtx condition, bool inverted)
+ {
+-  rtx args[2] = { label, condition ? GEN_INT (s390_branch_condition_mask (condition) ^ 15) : const0_rtx };
++  rtx args[2] = { label, condition ? GEN_INT (s390_branch_condition_mask (condition)
++                                           ^ (inverted ? 0 : 15)) : const0_rtx };
+   output_asm_insn ("balr\t%%r1,0\n0:", args);
+   if (condition)
+     output_asm_insn ("bc\t%c1,3f-0b(%%r1)", args);
+@@ -55,6 +56,26 @@ s390_output_s370_jump (rtx label, rtx condition)
+   return "";
+ }
+ 
++/* S/370 has logical word addition/subtraction, but no ALCR/SLBR.  The low
++   word sets CC; BALR leaves it unchanged, and BC skips the high-word carry
++   adjustment when there is no carry (CC 0/1) or no borrow (CC 2/3).
++   Logical operations deliberately avoid fixed-point-overflow exceptions.
++   Both operands are register pairs, distinct through the earlyclobber
++   constraint.  r1 is fixed and the complete sequence clobbers CC.  */
++const char *
++s390_output_s370_di_arithmetic (rtx result, rtx operand, bool subtract)
++{
++  rtx args[2] = { result, operand };
++  output_asm_insn (subtract ? "slr\t%N0,%N1" : "alr\t%N0,%N1", args);
++  output_asm_insn ("balr\t%%r1,0\n0:", args);
++  output_asm_insn (subtract ? "bc\t3,1f-0b(%%r1)"
++                            : "bc\t12,1f-0b(%%r1)", args);
++  output_asm_insn ("la\t%%r1,1", args);
++  output_asm_insn (subtract ? "slr\t%0,%%r1\n1:" : "alr\t%0,%%r1\n1:", args);
++  output_asm_insn (subtract ? "slr\t%0,%1" : "alr\t%0,%1", args);
++  return "";
++}
++
+ /* Select before the parent derives architecture defaults.  This names the
+    existing lab contract, not a new GCC triplet or a broader S/370 ISA. */
+ void
+diff --git a/gcc/config/s390/s390.md b/gcc/config/s390/s390.md
+index 647d830a4aa9ceeae30936c4069fbd4be2a674d4..61d105769196666b3aba79babba1e09f1a071bc2 100644
+--- a/gcc/config/s390/s390.md
++++ b/gcc/config/s390/s390.md
+@@ -6366,12 +6366,21 @@
+   [(set_attr "op_type"  "RRE,RXY")
+    (set_attr "z10prop" "z10_super_E1,z10_super_E1")])
+ 
++(define_insn "*adddi3_s370"
++  [(set (match_operand:DI 0 "register_operand" "=&d")
++        (plus:DI (match_operand:DI 1 "register_operand" "%0")
++                 (match_operand:DI 2 "register_operand" "d")))
++   (clobber (reg:CC CC_REGNUM))]
++  "TARGET_S370"
++  "{ return s390_output_s370_di_arithmetic (operands[0], operands[2], false); }"
++  [(set_attr "length" "16")])
++
+ (define_insn_and_split "*adddi3_31z"
+   [(set (match_operand:DI 0 "nonimmediate_operand" "=&d")
+         (plus:DI (match_operand:DI 1 "nonimmediate_operand" "%0")
+                  (match_operand:DI 2 "general_operand" "do") ) )
+    (clobber (reg:CC CC_REGNUM))]
+-  "!TARGET_ZARCH"
++  "!TARGET_ZARCH && !TARGET_S370"
+   "#"
+   "&& reload_completed"
+   [(parallel
+@@ -6913,12 +6922,21 @@
+   [(set_attr "op_type"  "RRE,RXY")
+    (set_attr "z10prop" "z10_super_c_E1,z10_super_E1")])
+ 
++(define_insn "*subdi3_s370"
++  [(set (match_operand:DI 0 "register_operand" "=&d")
++        (minus:DI (match_operand:DI 1 "register_operand" "0")
++                  (match_operand:DI 2 "register_operand" "d")))
++   (clobber (reg:CC CC_REGNUM))]
++  "TARGET_S370"
++  "{ return s390_output_s370_di_arithmetic (operands[0], operands[2], true); }"
++  [(set_attr "length" "16")])
++
+ (define_insn_and_split "*subdi3_31z"
+   [(set (match_operand:DI 0 "register_operand" "=&d")
+         (minus:DI (match_operand:DI 1 "register_operand" "0")
+                   (match_operand:DI 2 "general_operand" "do") ) )
+    (clobber (reg:CC CC_REGNUM))]
+-  "!TARGET_ZARCH"
++  "!TARGET_ZARCH && !TARGET_S370"
+   "#"
+   "&& reload_completed"
+   [(parallel
+@@ -10157,6 +10175,8 @@
+           (label_ref (match_operand 0 "" ""))))]
+   ""
+ {
++  if (TARGET_S370)
++    return s390_output_s370_jump (operands[0], operands[1], true);
+   if (get_attr_length (insn) == 4)
+     return "j%D1\t%l0";
+   else
+@@ -10165,8 +10185,9 @@
+   [(set_attr "op_type" "RI")
+    (set_attr "type"    "branch")
+    (set (attr "length")
+-        (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 60000))
+-                      (const_int 4) (const_int 6)))])
++        (if_then_else (match_test "TARGET_S370") (const_int 18)
++          (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 60000))
++                      (const_int 4) (const_int 6))))])
+ 
+ (define_insn "*icjump_long"
+   [(set (pc)

@@ -1,0 +1,36 @@
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index f08ccf38787b0418b992d9e722cac766cd55e7ad..d36ffa0941ae3d483a3a86493c4cf552b1d11106 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -17163,6 +17163,12 @@ s390_valid_target_attribute_tree (tree args,
+ 				  const struct gcc_options *opts_set,
+ 				  bool force_pragma)
+ {
++  if (opts->x_s370_profile)
++    {
++      error ("S/370 profile does not support per-function target attributes "
++             "or target pragmas");
++      return error_mark_node;
++    }
+   tree t = NULL_TREE;
+   struct gcc_options new_opts_set;
+ 
+diff --git a/gcc/config/s390/s390.h b/gcc/config/s390/s390.h
+index 99e163895321b0a006020157b37172cca775b505..373cded58cc78620c004ab5ab12f05ee4d4d07dd 100644
+--- a/gcc/config/s390/s390.h
++++ b/gcc/config/s390/s390.h
+@@ -267,7 +267,13 @@ enum processor_flags
+ #define TARGET_TPF 0
+ 
+ /* Target CPU builtins.  */
+-#define TARGET_CPU_CPP_BUILTINS() s390_cpu_cpp_builtins (pfile)
++#define TARGET_CPU_CPP_BUILTINS() do { \
++  s390_cpu_cpp_builtins (pfile); \
++  if (s370_profile) { \
++    cpp_undef (pfile, "__ARCH__"); \
++    cpp_define (pfile, "__MAINFRAME_LAB_VM370_4381__=1"); \
++  } \
++} while (0)
+ 
+ #ifdef DEFAULT_TARGET_64BIT
+ #define TARGET_DEFAULT     (MASK_64BIT | MASK_ZARCH | MASK_HARD_DFP	\

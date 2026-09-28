@@ -1,0 +1,185 @@
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index 88fab873a08c2f9f22b49bb843bb9cad6b254ad1..538fec67fe23cee553df749fcf7eefe5517b86ab 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -1568,6 +1568,7 @@ s390_match_ccmode (rtx_insn *insn, machine_mode req_mode)
+ machine_mode
+ s390_tm_ccmode (rtx op1, rtx op2, bool mixed)
+ {
++  if (TARGET_S370 && mixed) return VOIDmode;
+   int bit0, bit1;
+ 
+   /* ??? Fixme: should work on CONST_WIDE_INT as well.  */
+@@ -1634,11 +1635,11 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
+ 	      }
+ 	  }
+ 
+-	if (register_operand (op0, HImode)
++	if (!TARGET_S370 && register_operand (op0, HImode)
+ 	    && GET_CODE (op1) == CONST_INT
+ 	    && (INTVAL (op1) == -1 || INTVAL (op1) == 65535))
+ 	  return CCT3mode;
+-	if (register_operand (op0, QImode)
++	if (!TARGET_S370 && register_operand (op0, QImode)
+ 	    && GET_CODE (op1) == CONST_INT
+ 	    && (INTVAL (op1) == -1 || INTVAL (op1) == 255))
+ 	  return CCT3mode;
+diff --git a/gcc/config/s390/s390.md b/gcc/config/s390/s390.md
+index ae5e7d44e2927ece6255f207977ad162edf086c5..647d830a4aa9ceeae30936c4069fbd4be2a674d4 100644
+--- a/gcc/config/s390/s390.md
++++ b/gcc/config/s390/s390.md
+@@ -1069,7 +1069,7 @@
+   [(set (reg CC_REGNUM)
+         (compare (match_operand:HQI 0 "register_operand" "d")
+                  (match_operand:HQI 1 "immediate_operand" "n")))]
+-  "s390_match_ccmode (insn, s390_tm_ccmode (constm1_rtx, operands[1], true))"
++  "!TARGET_S370 && s390_match_ccmode (insn, s390_tm_ccmode (constm1_rtx, operands[1], true))"
+   "tml\t%0,<max_uint>"
+   [(set_attr "op_type" "RI")
+    (set_attr "z10prop" "z10_super")])
+@@ -1212,8 +1212,9 @@
+   "@
+    icm\t%2,<icm_lo>,%S0
+    icmy\t%2,<icm_lo>,%S0
+-   tml\t%0,<max_uint>"
+-  [(set_attr "op_type" "RS,RSY,RI")
++   * if (TARGET_S370) { rtx ops[2] = { operands[0], GEN_INT ((GET_MODE (operands[0]) == QImode ? 24 : 16)) }; output_asm_insn (\"lr\t%%r1,%0\;sll\t%%r1,%1\;ltr\t%%r1,%%r1\", ops); return \"\"; } return \"tml\t%0,<max_uint>\";"
++  [(set (attr "length") (if_then_else (and (match_test "TARGET_S370") (match_test "which_alternative == 2")) (const_int 8) (if_then_else (match_test "which_alternative == 1") (const_int 6) (const_int 4))))
++   (set_attr "op_type" "RS,RSY,RI")
+    (set_attr "cpu_facility" "*,longdisp,*")
+    (set_attr "z10prop" "z10_super_E1,z10_super_E1,z10_super")])
+ 
+@@ -1226,8 +1227,9 @@
+   "@
+    icm\t%2,3,%S0
+    icmy\t%2,3,%S0
+-   tml\t%0,65535"
+-  [(set_attr "op_type" "RS,RSY,RI")
++   * if (TARGET_S370) { rtx ops[2] = { operands[0], GEN_INT (16) }; output_asm_insn (\"lr\t%%r1,%0\;sll\t%%r1,%1\;ltr\t%%r1,%%r1\", ops); return \"\"; } return \"tml\t%0,65535\";"
++  [(set (attr "length") (if_then_else (and (match_test "TARGET_S370") (match_test "which_alternative == 2")) (const_int 8) (if_then_else (match_test "which_alternative == 1") (const_int 6) (const_int 4))))
++   (set_attr "op_type" "RS,RSY,RI")
+    (set_attr "cpu_facility" "*,longdisp,*")
+    (set_attr "z10prop" "z10_super_E1,z10_super_E1,z10_super")])
+ 
+@@ -1239,8 +1241,9 @@
+   "@
+    cli\t%S0,0
+    cliy\t%S0,0
+-   tml\t%0,255"
+-  [(set_attr "op_type" "SI,SIY,RI")
++   * if (TARGET_S370) { rtx ops[2] = { operands[0], GEN_INT (24) }; output_asm_insn (\"lr\t%%r1,%0\;sll\t%%r1,%1\;ltr\t%%r1,%%r1\", ops); return \"\"; } return \"tml\t%0,255\";"
++  [(set (attr "length") (if_then_else (and (match_test "TARGET_S370") (match_test "which_alternative == 2")) (const_int 8) (if_then_else (match_test "which_alternative == 1") (const_int 6) (const_int 4))))
++   (set_attr "op_type" "SI,SIY,RI")
+    (set_attr "cpu_facility" "*,longdisp,*")
+    (set_attr "z10prop" "z10_super,z10_super,z10_super")])
+ 
+@@ -3488,7 +3491,7 @@
+    (match_operand:BLK 1 "memory_operand" "")    ; input string
+    (match_operand:SI  2 "immediate_operand" "") ; search character
+    (match_operand:SI  3 "immediate_operand" "")] ; known alignment
+-  ""
++  "!TARGET_S370"
+ {
+   if (!TARGET_VX || operands[2] != const0_rtx)
+     emit_insn (gen_strlen_srst<mode> (operands[0], operands[1],
+@@ -3551,7 +3554,7 @@
+     [(set (match_operand:SI 0 "register_operand" "=d")
+ 	  (unspec:SI [(reg:CCU CC_REGNUM)] UNSPEC_STRCMPCC_TO_INT))
+      (clobber (reg:CC CC_REGNUM))])]
+-  ""
++  "!TARGET_S370"
+ {
+   /* As the result of CMPINT is inverted compared to what we need,
+      we have to swap the operands.  */
+@@ -3814,7 +3817,7 @@
+    (match_operand 5 "")  ; expected size
+    (match_operand 6 "")  ; minimal size
+    (match_operand 7 "")] ; maximal size
+-  ""
++  "!TARGET_S370"
+ {
+   if (s390_expand_movmem (operands[0], operands[1], operands[2], operands[6], operands[7]))
+     DONE;
+@@ -4026,7 +4029,7 @@
+    (match_operand 5 "")  ; expected size
+    (match_operand 6 "")  ; minimal size
+    (match_operand 7 "")] ; maximal size
+-  ""
++  "!TARGET_S370"
+   "s390_expand_setmem (operands[0], operands[1], operands[2], operands[6], operands[7]); DONE;")
+ 
+ ; Clear a block that is up to 256 bytes in length.
+@@ -4214,7 +4217,7 @@
+                     (match_operand:BLK 2 "memory_operand" "") ) )
+    (use (match_operand:SI 3 "general_operand" ""))
+    (use (match_operand:SI 4 "" ""))]
+-  ""
++  "!TARGET_S370"
+ {
+   if (s390_expand_cmpmem (operands[0], operands[1],
+                           operands[2], operands[3]))
+@@ -7676,7 +7679,18 @@
+ 	  (mult:SI  (match_operand:SI 1 "nonimmediate_operand" "%0,d,0,0,0,0")
+ 		    (match_operand:SI 2 "general_operand"       "d,d,K,R,T,Os")))
+      (clobber (reg:CC CC_REGNUM))])]
+-  "")
++  ""
++{
++  if (TARGET_S370)
++    {
++      rtx wide = gen_reg_rtx (DImode);
++      rtx lhs = force_reg (SImode, operands[1]);
++      rtx rhs = force_reg (SImode, operands[2]);
++      emit_insn (gen_mulsidi3 (wide, lhs, rhs));
++      emit_move_insn (operands[0], gen_lowpart (SImode, wide));
++      DONE;
++    }
++})
+ 
+ (define_insn "*mulsi3_sign"
+   [(set (match_operand:SI 0 "register_operand" "=d,d")
+@@ -7695,7 +7709,7 @@
+         (mult:SI  (match_operand:SI 1 "nonimmediate_operand" "%0,d,0,0,0,0")
+                   (match_operand:SI 2 "general_operand"       "d,d,K,R,T,Os")))
+    (clobber (match_scratch:CC       3                        "=X,c,X,X,X,X"))]
+-  ""
++  "!TARGET_S370"
+   "@
+    msr\t%0,%2
+    msrkc\t%0,%1,%2
+@@ -7769,7 +7783,7 @@
+ 	           (match_operand:<DWH> 1 "register_operand"     "%0,0"))
+                  (zero_extend:DW
+ 	           (match_operand:<DWH> 2 "nonimmediate_operand" " d,T"))))]
+-  ""
++  "!TARGET_S370"
+   "@
+    ml<tg>r\t%0,%2
+    ml<tg>\t%0,%2"
+@@ -8031,7 +8045,7 @@
+ 	      (set (match_operand:SI 3 "general_operand" "")
+ 		   (umod:SI (match_dup 1) (match_dup 2)))])
+    (clobber (match_dup 4))]
+-  "!TARGET_ZARCH"
++  "!TARGET_ZARCH && !TARGET_S370"
+ {
+   rtx div_equal, mod_equal, equal;
+   rtx_insn *insn;
+@@ -8074,7 +8088,7 @@
+           (zero_extend:DI
+             (truncate:SI
+               (udiv:DI (match_dup 1) (zero_extend:DI (match_dup 2)))))))]
+-  "!TARGET_ZARCH"
++  "!TARGET_ZARCH && !TARGET_S370"
+   "@
+    dlr\t%0,%2
+    dl\t%0,%2"
+@@ -10290,7 +10304,7 @@
+         (plus:GPR (match_dup 1) (match_dup 2)))
+    (clobber (reg:CC CC_REGNUM))
+    (clobber (match_scratch:GPR 5 ""))]
+-  ""
++  "!TARGET_S370"
+   "#"
+   "!reload_completed && !reload_in_progress"
+   [(set (match_dup 7) (match_dup 2)) ; the increment

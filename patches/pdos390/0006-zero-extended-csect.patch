@@ -1,0 +1,16 @@
+--- a/pdld/src/mainframe.c
++++ b/pdld/src/mainframe.c
+@@ -1292,8 +1292,13 @@
+                             address = part->content_size;
+                         }
+                         if (address + len > part->content_size) {
++                            size_t old_size = part->content_size;
+                             part->content_size = address + len;
+                             part->content = xrealloc (part->content, part->content_size);
++                            /* TXT cards can omit zero-filled bytes of an SD.
++                             * Keep the enlarged tail defined for MVS/XMIT. */
++                            memset (part->content + old_size, 0,
++                                    part->content_size - old_size);
+                         }
+                     }
+ 

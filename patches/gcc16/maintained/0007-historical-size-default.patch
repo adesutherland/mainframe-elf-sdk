@@ -1,0 +1,16 @@
+diff --git a/gcc/config/s370/s370.cc b/gcc/config/s370/s370.cc
+index a754b58ad1c92d037676bdd5dc43983387e54ec6..7cba653b27efd4be1c9ee75bec4860b2f26f1446 100644
+--- a/gcc/config/s370/s370.cc
++++ b/gcc/config/s370/s370.cc
+@@ -71,6 +71,11 @@ s390_s370_select_profile (struct gcc_options *opts, struct gcc_options *set)
+     opts->x_target_flags &= ~MASK_ZARCH;
+   if (!(set->x_target_flags & MASK_SOFT_FLOAT))
+     opts->x_target_flags |= MASK_SOFT_FLOAT;
++  /* The parent common-option table enables MVCLE for -Os.  Size tuning
++     must not introduce this later facility.  An explicit request is still
++     diagnosed by the profile validation below. */
++  if (!(set->x_target_flags & MASK_MVCLE))
++    opts->x_target_flags &= ~MASK_MVCLE;
+   if (set->x_s390_arch || set->x_s390_tune)
+     error ("S/370 profile fixes instruction selection and tuning; "
+            "%<-march=%> and %<-mtune=%> are unsupported");

@@ -1,0 +1,20 @@
+--- a/pdpclib/mvssupa.asm
++++ b/pdpclib/mvssupa.asm
+@@ -890,6 +890,8 @@
+ *  Note that this test may fail for data sets written under DOS
+          TM    FM1SMSFG,FM1STRP+FM1PDSEX+FM1DSAE  Usable
+          BNZ   BADDSORG             No; too bad
++         TM    FM1SMSFG,FM1PDSE  PDSE has no valid DS1LSTAR
++         BNZ   DDCX1DD             Let normal access methods check it
+          LA    R0,ORFBDPDS        Preset - not initialized
+          ICM   R15,7,DS1LSTAR     Any directory blocks?
+          BZ    OPRERR               No; fail
+@@ -4788,7 +4790,7 @@
+ FM1FLAG  EQU   DS1NOBDB+1,1,C'X'  MORE FLAGS
+ FM1COMPR EQU   X'80'           COMPRESSABLE EXTENDED IF DS1STRP
+ FM1CPOIT EQU   X'40'           CHECKPOINTED D S
+-FM1SMSFG EQU   FM1FLAG+1,1,C'X'  SMS FLAG
++FM1SMSFG EQU   FM1FLAG+17,1,C'X' SMS flag at DSCB byte 78
+ FM1SMSDS EQU   X'80'           SMS D S
+ FM1SMSUC EQU   X'40'           NO BCS ENTRY
+ FM1REBLK EQU   X'20'           MAY BE REBLOCKED

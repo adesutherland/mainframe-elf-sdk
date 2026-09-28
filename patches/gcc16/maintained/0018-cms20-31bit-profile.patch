@@ -1,0 +1,34 @@
+diff --git a/gcc/config/s370/s370.cc b/gcc/config/s370/s370.cc
+index b41a2e13f807cc41408c58024ba0a055f597c9f7..c3f21ac33d2956cabc77a2de8d1d176f1de6e8a5 100644
+--- a/gcc/config/s370/s370.cc
++++ b/gcc/config/s370/s370.cc
+@@ -84,8 +84,12 @@ s390_s370_select_profile (struct gcc_options *opts, struct gcc_options *set)
+   if (!opts->x_s370_profile)
+     return;
+   if (strcmp (opts->x_s370_profile, "vm370-4381-v1")
+-      && strcmp (opts->x_s370_profile, "vmkernel"))
++      && strcmp (opts->x_s370_profile, "vmkernel")
++      && strcmp (opts->x_s370_profile, "cms20-esa31-v1"))
+     error ("unknown S/370 profile %qs", opts->x_s370_profile);
++  /* The CMS 20 profile retains this conservative integer instruction
++     selection and the ELF C ABI.  Its separate runtime owns AMODE 31 entry,
++     CMSCALL services and 31-bit storage; this does not enable a wider ISA. */
+   opts->x_s390_s370 = 1;
+   if (!(set->x_target_flags & MASK_64BIT))
+     opts->x_target_flags &= ~MASK_64BIT;
+diff --git a/gcc/config/s390/s390.h b/gcc/config/s390/s390.h
+index cd17629b04cb93274660286dbd26a8d7653d28a1..5b983bdbc67b820f49ed23c7de845687450c2a6d 100644
+--- a/gcc/config/s390/s390.h
++++ b/gcc/config/s390/s390.h
+@@ -271,7 +271,10 @@ enum processor_flags
+   s390_cpu_cpp_builtins (pfile); \
+   if (s370_profile) { \
+     cpp_undef (pfile, "__ARCH__"); \
+-    cpp_define (pfile, "__MAINFRAME_LAB_VM370_4381__=1"); \
++    if (!strcmp (s370_profile, "cms20-esa31-v1")) \
++      cpp_define (pfile, "__MAINFRAME_LAB_CMS20_ESA31__=1"); \
++    else \
++      cpp_define (pfile, "__MAINFRAME_LAB_VM370_4381__=1"); \
+     if (!strcmp (s370_profile, "vmkernel")) \
+       cpp_define (pfile, "__MAINFRAME_LAB_VMKERNEL__=1"); \
+   } \

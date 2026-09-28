@@ -1,0 +1,404 @@
+diff --git a/gcc/config/s390/predicates.md b/gcc/config/s390/predicates.md
+index 2c29e78c24166e803a0e70b51f43b41d0751e9f3..86e0e8723e545f35aae4b9c85feb6014c37c3d6d 100644
+--- a/gcc/config/s390/predicates.md
++++ b/gcc/config/s390/predicates.md
+@@ -100,14 +100,15 @@
+ ;; Allow SYMBOL_REFs and @PLT stubs.
+ 
+ (define_special_predicate "bras_sym_operand"
+-  (ior (and (match_code "symbol_ref")
++  (and (match_test "!TARGET_S370")
++       (ior (and (match_code "symbol_ref")
+ 	    (ior (match_test "!flag_pic")
+ 		 (match_test "SYMBOL_REF_LOCAL_P (op)")
+ 		 (and (match_test "TARGET_64BIT")
+ 		      (match_test "SYMBOL_REF_FUNCTION_P (op)"))))
+        (and (match_code "const")
+ 	    (and (match_test "GET_CODE (XEXP (op, 0)) == UNSPEC")
+-		 (match_test "XINT (XEXP (op, 0), 1) == UNSPEC_PLT31")))))
++		 (match_test "XINT (XEXP (op, 0), 1) == UNSPEC_PLT31"))))))
+ 
+ ;; Return true if OP is a PLUS that is not a legitimate
+ ;; operand for the LA instruction.
+@@ -160,6 +161,9 @@
+ (define_predicate "larl_operand"
+   (match_code "label_ref, symbol_ref, const")
+ {
++  if (TARGET_S370)
++    return false;
++
+   /* Allow labels and local symbols.  */
+   if (GET_CODE (op) == LABEL_REF)
+     return true;
+diff --git a/gcc/config/s390/s390-protos.h b/gcc/config/s390/s390-protos.h
+index bedce5830720e3ecd8e5ee2d208530879a17a78c..96353f9952ff22d06b5316ad7a50864fadb2b838 100644
+--- a/gcc/config/s390/s390-protos.h
++++ b/gcc/config/s390/s390-protos.h
+@@ -142,6 +142,9 @@ extern void s390_split_access_reg (rtx, rtx *, rtx *);
+ 
+ extern void print_operand_address (FILE *, rtx);
+ extern void print_operand (FILE *, rtx, int);
++extern const char *s390_output_s370_ri (const char *, rtx, rtx);
++extern const char *s390_output_s370_base (rtx, rtx);
++extern const char *s390_output_s370_jump (rtx, rtx);
+ extern void s390_output_pool_entry (rtx, machine_mode, unsigned int);
+ extern bool s390_const_int_pool_entry_p (rtx, HOST_WIDE_INT *);
+ extern int s390_label_align (rtx_insn *);
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index edcd39c171affb4ce515b2662e61b4f66e98f8bf..88fab873a08c2f9f22b49bb843bb9cad6b254ad1 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -12858,7 +12858,9 @@ s390_emit_epilogue (bool sibcall)
+ 	 s390_optimize_prologue.
+ 
+ 	 This optimization is only helpful on in-order machines.  */
+-      if (! sibcall
++      /* The early-return-load optimization can choose fixed r1, then
++         schedule its load across an experimental scratch-using sequence.  */
++      if (! sibcall && !TARGET_S370
+ 	  && cfun_gpr_save_slot (RETURN_REGNUM) == SAVE_SLOT_STACK
+ 	  && s390_tune <= PROCESSOR_2097_Z10)
+ 	{
+@@ -14920,6 +14922,11 @@ s390_emit_call (rtx addr_location, rtx tls_call, rtx result_reg,
+   rtx *clobber_thunk_reg = &vec[3];
+   int i;
+ 
++  /* The experimental historical path keeps the ELF ABI but reaches
++     external functions through relocatable fullword pointers.  */
++  if (TARGET_S370 && SYMBOL_REF_P (addr_location))
++    addr_location = force_reg (Pmode, force_const_mem (Pmode, addr_location));
++
+   /* Direct function calls need special treatment.  */
+   if (GET_CODE (addr_location) == SYMBOL_REF)
+     {
+@@ -15024,6 +15031,43 @@ s390_emit_call (rtx addr_location, rtx tls_call, rtx result_reg,
+   return insn;
+ }
+ 
++
++/* Experimental historical instruction sequences.  Inline literals avoid
++   creating new pseudos or constant-pool RTL after register allocation.
++   Numeric labels are local to each sequence.  r1 is fixed by the option;
++   every accepted image must additionally pass the external opcode audit.  */
++const char *
++s390_output_s370_ri (const char *opcode, rtx reg, rtx value)
++{
++  if (REGNO (reg) == 1)
++    fatal_error (input_location, "experimental S/370 scratch register conflict");
++  rtx args[2] = { reg, value };
++  output_asm_insn ("balr\t%%r1,0\n0:\n\tb\t2f-0b(%%r1)\n1:\n\t.short\t%h1\n2:", args);
++  char text[80];
++  snprintf (text, sizeof text, "%s\t%%0,1b-0b(%%%%r1)", opcode);
++  output_asm_insn (text, args);
++  return "";
++}
++
++const char *
++s390_output_s370_base (rtx reg, rtx label)
++{
++  rtx args[2] = { reg, label };
++  output_asm_insn ("balr\t%0,0\n0:\n\tb\t2f-0b(%0)\n\t.balign\t4\n1:\n\t.long\t%l1\n2:\n\tl\t%0,1b-0b(%0)", args);
++  return "";
++}
++
++const char *
++s390_output_s370_jump (rtx label, rtx condition)
++{
++  rtx args[2] = { label, condition ? GEN_INT (s390_branch_condition_mask (condition) ^ 15) : const0_rtx };
++  output_asm_insn ("balr\t%%r1,0\n0:", args);
++  if (condition)
++    output_asm_insn ("bc\t%c1,3f-0b(%%r1)", args);
++  output_asm_insn ("l\t%%r1,1f-0b(%%r1)\n\tbr\t%%r1\n\t.balign\t4\n1:\n\t.long\t%l0\n3:", args);
++  return "";
++}
++
+ /* Implement TARGET_CONDITIONAL_REGISTER_USAGE.  */
+ 
+ static void
+@@ -15035,6 +15079,10 @@ s390_conditional_register_usage (void)
+     fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;
+   fixed_regs[BASE_REGNUM] = 0;
+   fixed_regs[RETURN_REGNUM] = 0;
++  /* Output-only historical sequences use the ABI call-clobbered r1.
++     This option is deliberately a restricted, externally audited proof.  */
++  if (TARGET_S370)
++    fixed_regs[1] = 1;
+   if (TARGET_64BIT)
+     {
+       for (i = FPR8_REGNUM; i <= FPR15_REGNUM; i++)
+@@ -16625,6 +16673,26 @@ s390_option_override_internal (struct gcc_options *opts,
+ 
+   opts->x_s390_tune_flags = processor_flags_table[opts->x_s390_tune];
+ 
++  /* Fail closed on modes outside the bounded historical proof.  The
++     public interface remains the 31-bit ELF ABI inside a 24-bit image.  */
++  if (opts->x_s390_s370)
++    {
++      if (TARGET_64BIT_P (opts->x_target_flags)
++          || TARGET_ZARCH_P (opts->x_target_flags)
++          || !TARGET_SOFT_FLOAT_P (opts->x_target_flags)
++          || opts->x_flag_pic || opts->x_flag_pie
++          || opts->x_flag_stack_protect || opts->x_flag_split_stack
++          || opts->x_flag_stack_clash_protection
++          || opts->x_profile_flag
++          || opts->x_s390_arch != PROCESSOR_2064_Z900)
++        error ("experimental S/370 requires -m31 -mesa -msoft-float, "
++               "non-PIC code, no profiling/stack instrumentation, "
++               "and the default architecture");
++      opts->x_flag_optimize_sibling_calls = 0;
++      opts->x_flag_shrink_wrap = 0;
++      opts->x_flag_shrink_wrap_separate = 0;
++    }
++
+   /* Sanity checks.  */
+   if (opts->x_s390_arch == PROCESSOR_NATIVE
+       || opts->x_s390_tune == PROCESSOR_NATIVE)
+diff --git a/gcc/config/s390/s390.h b/gcc/config/s390/s390.h
+index 8b7eb3cb0223947386282d76ca0728f9ffe43a4e..3f979ca90f4e3e0989a7e0ff1730711bdbfa2f28 100644
+--- a/gcc/config/s390/s390.h
++++ b/gcc/config/s390/s390.h
+@@ -56,6 +56,8 @@ enum processor_flags
+    providing the respective hardware facility regardless of the
+    current cpu mode (ESA or z/Architecture).  */
+ 
++#define TARGET_S370 s390_s370
++
+ #define TARGET_CPU_IEEE_FLOAT \
+ 	(s390_arch_flags & PF_IEEE_FLOAT)
+ #define TARGET_CPU_IEEE_FLOAT_P(opts) \
+diff --git a/gcc/config/s390/s390.md b/gcc/config/s390/s390.md
+index 52e9014e416d4af07c2995b6d74b5af01cfd27b3..ae5e7d44e2927ece6255f207977ad162edf086c5 100644
+--- a/gcc/config/s390/s390.md
++++ b/gcc/config/s390/s390.md
+@@ -593,12 +593,14 @@
+ ; mnemonics which only get defined through if_then_else currently
+ ; don't get added to the list values automatically and hence need to
+ ; be listed here.
+-(define_attr "mnemonic" "b,bas,basr,bc,bcr_flush,unknown" (const_string "unknown"))
++(define_attr "mnemonic" "b,bas,basr,bc,bcr_flush,ahi,aghi,lhi,chi,cghi,unknown" (const_string "unknown"))
+ 
+ ;; Length in bytes.
+ 
+ (define_attr "length" ""
+-  (cond [(eq_attr "op_type" "E,RR")		          (const_int 2)
++  (cond [(and (match_test "TARGET_S370") (eq_attr "op_type" "RI"))
++                                                      (const_int 12)
++         (eq_attr "op_type" "E,RR")		          (const_int 2)
+          (eq_attr "op_type" "RX,RI,RRE,RS,RSI,S,SI,RRF")  (const_int 4)]
+     (const_int 6)))
+ 
+@@ -1293,7 +1295,7 @@
+   "s390_match_ccmode (insn, CCTmode)"
+   "@
+    cr\t%0,%1
+-   chi\t%0,%h1
++   * if (TARGET_S370) return s390_output_s370_ri (\"ch\", operands[0], operands[1]); return \"chi\t%0,%h1\";
+    cfi\t%0,%1
+    c\t%0,%1
+    cy\t%0,%1
+@@ -1367,7 +1369,7 @@
+   "s390_match_ccmode(insn, CCSmode)"
+   "@
+    c<g>r\t%0,%1
+-   c<g>hi\t%0,%h1
++   * if (TARGET_S370) return s390_output_s370_ri (\"ch\", operands[0], operands[1]); return \"c<g>hi\t%0,%h1\";
+    c<g>hsi\t%0,%h1
+    c<g>fi\t%0,%1
+    c<g>\t%0,%1
+@@ -2439,7 +2441,7 @@
+ 	 " K,N0HS0,N1HS0,Os,L,b,d,R,T,d,d, *f, *f,  R,  R,  T,*f,*f,t,d,t,d,K,Q,K,v,d,v,R,v"))]
+   "TARGET_ZARCH"
+   "@
+-   lhi\t%0,%h1
++   * if (TARGET_S370) return s390_output_s370_ri (\"lh\", operands[0], operands[1]); return \"lhi\t%0,%h1\";
+    llilh\t%0,%i1
+    llill\t%0,%i1
+    iilf\t%0,%o1
+@@ -2530,7 +2532,7 @@
+         (match_operand:SI 1 "general_operand"       "K,d,R,d, *f, *f,  R,  R,*f,t,d,t,Q"))]
+   "!TARGET_ZARCH"
+   "@
+-   lhi\t%0,%h1
++   * if (TARGET_S370) return s390_output_s370_ri (\"lh\", operands[0], operands[1]); return \"lhi\t%0,%h1\";
+    lr\t%0,%1
+    l\t%0,%1
+    st\t%1,%0
+@@ -2665,7 +2667,7 @@
+   ""
+   "@
+    lr\t%0,%1
+-   lhi\t%0,%h1
++   * if (TARGET_S370) return s390_output_s370_ri (\"lh\", operands[0], operands[1]); return \"lhi\t%0,%h1\";
+    lh\t%0,%1
+    lhy\t%0,%1
+    lhrl\t%0,%1
+@@ -2731,7 +2733,7 @@
+   ""
+   "@
+    lr\t%0,%1
+-   lhi\t%0,%b1
++   * if (TARGET_S370) return s390_output_s370_ri (\"lh\", operands[0], GEN_INT (INTVAL (operands[1]) & 255)); return \"lhi\t%0,%b1\";
+    ic\t%0,%1
+    icy\t%0,%1
+    stc\t%1,%0
+@@ -3088,7 +3090,7 @@
+    ley\t%0,%1
+    ste\t%1,%0
+    stey\t%1,%0
+-   lhi\t%0,0
++   * if (TARGET_S370) return s390_output_s370_ri (\"lh\", operands[0], const0_rtx); return \"lhi\t%0,0\";
+    lr\t%0,%1
+    lrl\t%0,%1
+    l\t%0,%1
+@@ -6426,7 +6428,7 @@
+   "@
+    a<g>r\t%0,%2
+    a<g>rk\t%0,%1,%2
+-   a<g>hi\t%0,%h2
++   * if (TARGET_S370) return s390_output_s370_ri (\"ah\", operands[0], operands[2]); return \"a<g>hi\t%0,%h2\";
+    a<g>hik\t%0,%1,%h2
+    al<g>fi\t%0,%2
+    sl<g>fi\t%0,%n2
+@@ -6588,7 +6590,7 @@
+            /* Avoid INT32_MIN on 32 bit.  */
+            && (!TARGET_ZARCH || INTVAL (operands[2]) != -0x7fffffff - 1)))"
+   "@
+-   a<g>hi\t%0,%h2
++   * if (TARGET_S370) return s390_output_s370_ri (\"ah\", operands[0], operands[2]); return \"a<g>hi\t%0,%h2\";
+    a<g>hik\t%0,%1,%h2
+    a<g>fi\t%0,%2
+    a<g>si\t%0,%c2"
+@@ -6653,7 +6655,7 @@
+   "@
+    a<g>r\t%0,%2
+    a<g>rk\t%0,%1,%2
+-   a<g>hi\t%0,%h2
++   * if (TARGET_S370) return s390_output_s370_ri (\"ah\", operands[0], operands[2]); return \"a<g>hi\t%0,%h2\";
+    a<g>hik\t%0,%1,%h2
+    a<g>\t%0,%2
+    a<y>\t%0,%2
+@@ -6674,7 +6676,7 @@
+         (plus:GPR (match_dup 1) (match_dup 2)))]
+   "s390_match_ccmode (insn, CCOmode)"
+   "@
+-   a<g>hi\t%0,%h2
++   * if (TARGET_S370) return s390_output_s370_ri (\"ah\", operands[0], operands[2]); return \"a<g>hi\t%0,%h2\";
+    a<g>hik\t%0,%1,%h2
+    a<g>si\t%0,%c2"
+   [(set_attr "op_type"  "RI,RIE,SIY")
+@@ -10061,6 +10063,8 @@
+           (pc)))]
+   ""
+ {
++  if (TARGET_S370)
++    return s390_output_s370_jump (operands[0], operands[1]);
+   if (get_attr_length (insn) == 4)
+     return "j%C1\t%l0";
+   else
+@@ -10069,8 +10073,9 @@
+   [(set_attr "op_type" "RI")
+    (set_attr "type"    "branch")
+    (set (attr "length")
+-        (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 60000))
+-                      (const_int 4) (const_int 6)))])
++        (if_then_else (match_test "TARGET_S370") (const_int 18)
++          (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 60000))
++                      (const_int 4) (const_int 6))))])
+ 
+ (define_insn "*cjump_long"
+   [(set (pc)
+@@ -10411,7 +10416,7 @@
+ 		 (subreg:SI (match_dup 2) 0)))
+    (clobber (match_scratch:SI 4 "=X,&1,&?d"))
+    (clobber (reg:CC CC_REGNUM))]
+-  "!TARGET_ZARCH"
++  "!TARGET_S370 && !TARGET_ZARCH"
+ {
+   if (which_alternative != 0)
+     return "#";
+@@ -10444,7 +10449,7 @@
+ (define_expand "doloop_end"
+   [(use (match_operand 0 "" ""))        ; loop pseudo
+    (use (match_operand 1 "" ""))]       ; label
+-  ""
++  "!TARGET_S370"
+ {
+   if (GET_MODE (operands[0]) == SImode)
+     emit_jump_insn (gen_doloop_si64 (operands[1], operands[0], operands[0]));
+@@ -10467,7 +10472,7 @@
+         (plus:SI (match_dup 1) (const_int -1)))
+    (clobber (match_scratch:SI 3 "=X,&1,&?d"))
+    (clobber (reg:CC CC_REGNUM))]
+-  ""
++  "!TARGET_S370"
+ {
+   if (which_alternative != 0)
+     return "#";
+@@ -10557,6 +10562,8 @@
+   [(set (pc) (label_ref (match_operand 0 "" "")))]
+   ""
+ {
++  if (TARGET_S370)
++    return s390_output_s370_jump (operands[0], NULL_RTX);
+   if (get_attr_length (insn) == 4)
+     return "j\t%l0";
+   else
+@@ -10565,8 +10572,9 @@
+   [(set_attr "op_type" "RI")
+    (set_attr "type"  "branch")
+    (set (attr "length")
+-        (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 60000))
+-                      (const_int 4) (const_int 6)))])
++        (if_then_else (match_test "TARGET_S370") (const_int 14)
++          (if_then_else (lt (abs (minus (pc) (match_dup 0))) (const_int 60000))
++                      (const_int 4) (const_int 6))))])
+ 
+ ;
+ ; indirect-jump instruction pattern(s).
+@@ -11999,8 +12007,13 @@
+   [(set (match_operand 0 "register_operand" "=a")
+         (unspec [(label_ref (match_operand 1 "" ""))] UNSPEC_MAIN_BASE))]
+   "GET_MODE (operands[0]) == Pmode"
+-  "larl\t%0,%1"
+-  [(set_attr "op_type" "RIL")
++{
++  if (TARGET_S370)
++    return s390_output_s370_base (operands[0], operands[1]);
++  return "larl\t%0,%1";
++}
++  [(set (attr "length") (if_then_else (match_test "TARGET_S370") (const_int 16) (const_int 6)))
++   (set_attr "op_type" "RIL")
+    (set_attr "type"    "larl")
+    (set_attr "z10prop" "z10_fwd_A1")
+    (set_attr "relative_long" "yes")])
+@@ -12019,8 +12032,13 @@
+   [(set (match_operand 0 "register_operand" "=a")
+         (unspec [(label_ref (match_operand 1 "" ""))] UNSPEC_RELOAD_BASE))]
+   "GET_MODE (operands[0]) == Pmode"
+-  "larl\t%0,%1"
+-  [(set_attr "op_type" "RIL")
++{
++  if (TARGET_S370)
++    return s390_output_s370_base (operands[0], operands[1]);
++  return "larl\t%0,%1";
++}
++  [(set (attr "length") (if_then_else (match_test "TARGET_S370") (const_int 16) (const_int 6)))
++   (set_attr "op_type" "RIL")
+    (set_attr "type"    "larl")
+    (set_attr "z10prop" "z10_fwd_A1")])
+ 
+diff --git a/gcc/config/s390/s390.opt b/gcc/config/s390/s390.opt
+index 93bd55a07e9dfe70995e504a13890f78b7a9d1c3..7cef7cd26f38c3d5fe41c1b698eff7b2e6d91fdf 100644
+--- a/gcc/config/s390/s390.opt
++++ b/gcc/config/s390/s390.opt
+@@ -43,6 +43,10 @@ int s390_tune_flags
+ Variable
+ long s390_cost_pointer
+ 
++mexperimental-s370
++Target Var(s390_s370) Init(0) Save
++Experimental audited historical S/370 integer subset; reserves r1.
++
+ m31
+ Target RejectNegative Negative(m64) InverseMask(64BIT)
+ 31 bit ABI.

@@ -1,0 +1,28 @@
+diff --git a/gcc/config/s370/s370.cc b/gcc/config/s370/s370.cc
+index 11d3008d289c2e1d37bd101332347dbaac338e5a..b41a2e13f807cc41408c58024ba0a055f597c9f7 100644
+--- a/gcc/config/s370/s370.cc
++++ b/gcc/config/s370/s370.cc
+@@ -84,7 +84,7 @@ s390_s370_select_profile (struct gcc_options *opts, struct gcc_options *set)
+   if (!opts->x_s370_profile)
+     return;
+   if (strcmp (opts->x_s370_profile, "vm370-4381-v1")
+-      && strcmp (opts->x_s370_profile, "vmce-cms-kernel-v1"))
++      && strcmp (opts->x_s370_profile, "vmkernel"))
+     error ("unknown S/370 profile %qs", opts->x_s370_profile);
+   opts->x_s390_s370 = 1;
+   if (!(set->x_target_flags & MASK_64BIT))
+diff --git a/gcc/config/s390/s390.h b/gcc/config/s390/s390.h
+index eb873a9c81839f3691b419bd73648bb593db8835..cd17629b04cb93274660286dbd26a8d7653d28a1 100644
+--- a/gcc/config/s390/s390.h
++++ b/gcc/config/s390/s390.h
+@@ -272,8 +272,8 @@ enum processor_flags
+   if (s370_profile) { \
+     cpp_undef (pfile, "__ARCH__"); \
+     cpp_define (pfile, "__MAINFRAME_LAB_VM370_4381__=1"); \
+-    if (!strcmp (s370_profile, "vmce-cms-kernel-v1")) \
+-      cpp_define (pfile, "__MAINFRAME_LAB_CMS_KERNEL__=1"); \
++    if (!strcmp (s370_profile, "vmkernel")) \
++      cpp_define (pfile, "__MAINFRAME_LAB_VMKERNEL__=1"); \
+   } \
+ } while (0)
+ 

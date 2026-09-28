@@ -1,0 +1,30 @@
+diff --git a/gcc/config/s390/s390.h b/gcc/config/s390/s390.h
+index 3f979ca90f4e3e0989a7e0ff1730711bdbfa2f28..99e163895321b0a006020157b37172cca775b505 100644
+--- a/gcc/config/s390/s390.h
++++ b/gcc/config/s390/s390.h
+@@ -280,9 +280,9 @@ enum processor_flags
+    The order here is important so that -march doesn't squash the
+    tune values.  */
+ #define OPTION_DEFAULT_SPECS					\
+-  { "mode", "%{!mesa:%{!mzarch:-m%(VALUE)}}" },			\
+-  { "tune", "%{!mtune=*:%{!march=*:-mtune=%(VALUE)}}" },	\
+-  { "arch", "%{!march=*:-march=%(VALUE)}" }
++  { "mode", "%{!ms370-profile=*:%{!mesa:%{!mzarch:-m%(VALUE)}}}" }, \
++  { "tune", "%{!ms370-profile=*:%{!mtune=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
++  { "arch", "%{!ms370-profile=*:%{!march=*:-march=%(VALUE)}}" }
+ 
+ #ifdef __s390__
+ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
+@@ -306,9 +306,9 @@ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
+ /* Defaulting rules.  */
+ #define DRIVER_SELF_SPECS					\
+   MARCH_MTUNE_NATIVE_SPECS,					\
+-  "%{!m31:%{!m64:-m" S390_TARGET_BITS_STRING "}}",		\
+-  "%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}",		\
+-  "%{!march=*:-march=z900}"
++  "%{!ms370-profile=*:%{!m31:%{!m64:-m" S390_TARGET_BITS_STRING "}}}", \
++  "%{!ms370-profile=*:%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}}", \
++  "%{!ms370-profile=*:%{!march=*:-march=z900}}"
+ 
+ /* Target machine storage layout.  */
+ 

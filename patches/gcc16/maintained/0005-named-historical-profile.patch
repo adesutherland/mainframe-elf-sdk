@@ -1,0 +1,78 @@
+diff --git a/gcc/config/s370/s370-protos.h b/gcc/config/s370/s370-protos.h
+index 96e95bdb6045e26d510431a80c28b8933463984d..df426e4c5bae6dd528aabc9dfd3a32af950158a2 100644
+--- a/gcc/config/s370/s370-protos.h
++++ b/gcc/config/s370/s370-protos.h
+@@ -12,3 +12,4 @@ extern const char *s390_output_s370_ri (const char *, rtx, rtx);
+ extern const char *s390_output_s370_base (rtx, rtx);
+ extern const char *s390_output_s370_jump (rtx, rtx);
+ extern void s390_s370_override_options (struct gcc_options *);
++extern void s390_s370_select_profile (struct gcc_options *, struct gcc_options *);
+diff --git a/gcc/config/s370/s370.cc b/gcc/config/s370/s370.cc
+index 019392b3c23ea683a8af8e068de010e2554c5061..a754b58ad1c92d037676bdd5dc43983387e54ec6 100644
+--- a/gcc/config/s370/s370.cc
++++ b/gcc/config/s370/s370.cc
+@@ -55,6 +55,27 @@ s390_output_s370_jump (rtx label, rtx condition)
+   return "";
+ }
+ 
++/* Select before the parent derives architecture defaults.  This names the
++   existing lab contract, not a new GCC triplet or a broader S/370 ISA. */
++void
++s390_s370_select_profile (struct gcc_options *opts, struct gcc_options *set)
++{
++  if (!opts->x_s370_profile)
++    return;
++  if (strcmp (opts->x_s370_profile, "vm370-4381-v1"))
++    error ("unknown S/370 profile %qs", opts->x_s370_profile);
++  opts->x_s390_s370 = 1;
++  if (!(set->x_target_flags & MASK_64BIT))
++    opts->x_target_flags &= ~MASK_64BIT;
++  if (!(set->x_target_flags & MASK_ZARCH))
++    opts->x_target_flags &= ~MASK_ZARCH;
++  if (!(set->x_target_flags & MASK_SOFT_FLOAT))
++    opts->x_target_flags |= MASK_SOFT_FLOAT;
++  if (set->x_s390_arch || set->x_s390_tune)
++    error ("S/370 profile fixes instruction selection and tuning; "
++           "%<-march=%> and %<-mtune=%> are unsupported");
++}
++
+ /* Called at the original point in the S/390 option override hook. */
+ void
+ s390_s370_override_options (struct gcc_options *opts)
+@@ -63,6 +84,11 @@ s390_s370_override_options (struct gcc_options *opts)
+      public interface remains the 31-bit ELF ABI inside a 24-bit image.  */
+   if (opts->x_s390_s370)
+     {
++      if (opts->x_s370_profile
++          && (opts->x_target_flags & (MASK_OPT_HTM | MASK_OPT_VX
++              | MASK_HARD_DFP | MASK_PACKED_STACK | MASK_SMALL_EXEC
++              | MASK_MVCLE | MASK_BACKCHAIN | MASK_ZVECTOR)))
++        error ("S/370 profile rejects optional facilities and alternate stacks");
+       if (TARGET_64BIT_P (opts->x_target_flags)
+           || TARGET_ZARCH_P (opts->x_target_flags)
+           || !TARGET_SOFT_FLOAT_P (opts->x_target_flags)
+diff --git a/gcc/config/s370/s370.opt b/gcc/config/s370/s370.opt
+index ba44ede134072f4fb48b83a8f29b60640cdffd3a..a14d77482f0dbf1e71406a2b48f982c7858ee99b 100644
+--- a/gcc/config/s370/s370.opt
++++ b/gcc/config/s370/s370.opt
+@@ -5,3 +5,7 @@
+ mexperimental-s370
+ Target Var(s390_s370) Init(0) Save
+ Experimental audited historical S/370 integer subset; reserves r1.
++
++ms370-profile=
++Target RejectNegative Joined Var(s370_profile) Init(0) Save
++Select a named Mainframe Lab historical execution profile.
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index fe6fbb064db50273d93441dc5d5f38c2f1d659d9..f08ccf38787b0418b992d9e722cac766cd55e7ad 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -16617,6 +16617,8 @@ static void
+ s390_option_override_internal (struct gcc_options *opts,
+ 			       struct gcc_options *opts_set)
+ {
++  s390_s370_select_profile (opts, opts_set);
++
+   /* Architecture mode defaults according to ABI.  */
+   if (!(opts_set->x_target_flags & MASK_ZARCH))
+     {

@@ -1,0 +1,11 @@
+; Experimental historical S/370 option, split for Mainframe Lab, 19 September 2026.
+; Part of GCC, GPL-3.0-or-later, WITHOUT ANY WARRANTY; see COPYING3.
+; The original S/390 options retain their FSF notices in s390/s390.opt.
+
+mexperimental-s370
+Target Var(s390_s370) Init(0) Save
+Experimental audited historical S/370 integer subset; reserves r1.
+
+ms370-profile=
+Target RejectNegative Joined Var(s370_profile) Init(0) Save
+Select a named Mainframe Lab historical execution profile.

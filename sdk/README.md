@@ -1,0 +1,62 @@
+# Modern compiler SDK source extraction
+
+This directory is the source inventory for the separate modern compiler SDK.
+It is a **standalone source extraction**, not a claim that every runtime and
+native adapter can already be rebuilt from source. The full lab
+retains its legacy compiler and independent OS work. The dedicated PDOS
+application target and runtime are outside this SDK; PDOS may exercise
+unchanged TSO binaries through its supported services.
+
+The separate public source repository uses MIT for original Mainframe Lab
+files, with inherited GCC, binutils, newlib and PDOS/PDPCLIB terms preserved
+as described in `sdk/LICENSING.md`. Local packages containing pinned native
+object decks are not public artifacts until their redistribution provenance is
+reviewed.
+
+`source-files.txt` is the reviewed copy list. From the lab checkout, make an
+independent source tree:
+
+```sh
+python3 tools/compiler_sdk.py extract --out /tmp/mainframe-compiler-sdk-source
+```
+
+After extraction, all reconstruction commands run **inside that tree**. The
+producer reads three locked upstream archives (GCC 16.2.0, GNU binutils 2.47,
+newlib 4.6.0.20260123), checks SHA-256, applies the retained GCC recovery
+series and newlib patch, checks the recovered source against the editable
+package, then builds host tools in a new work root. `--cache` can point to a
+verified read-only archive cache. Add `--download` to fetch missing official
+archives; a changed response fails its pinned hash.
+
+```sh
+cd /tmp/mainframe-compiler-sdk-source
+python3 tools/compiler_sdk.py prepare --cache /tmp/sdk-archives --work /tmp/sdk-build
+python3 tools/compiler_sdk.py build-tools --work /tmp/sdk-build
+```
+
+On Apple Silicon macOS, the default build uses Homebrew `gcc-16`/`g++-16` and
+the installed GMP, MPFR, MPC and ISL formulae. On Linux it uses the host
+`gcc`/`g++` and development packages for those libraries. A working cREXX
+host executable is needed only for separately supplied application recipes;
+no target cREXX binary is used to build the compiler. The source inventory
+deliberately includes no cREXX application or platform source, RXBIN library,
+guest image, credential, private correspondence, historical manual, or PDOS
+kernel source. Generic C and newlib adapters remain in the SDK.
+
+The source package preserves six active profile JSON contracts and the retired
+`vmce-cms-kernel-v1` record for migration/rejection evidence. The active
+profiles are historical CMS24, CMS31, TSO24, TSO31, TSO64, and common
+`vmkernel`. Profile identity is checked by the existing checkers; `vmkernel`
+has only freestanding component output. TSO64 has a qualified RMODE ANY route
+and a separately reviewed low-launcher/RMODE64 package route; execution on
+modern z/OS remains unverified.
+
+GCC is GPLv3 with its retained runtime exception; binutils and newlib carry
+their own upstream licences and file notices. PDPCLIB native service source
+retains its own notice. The baseline native decks and accepted RMODE ANY
+`PDPL34.obj`/`E64.obj` adapters were assembled with ASMA90. They are pinned
+bootstrap inputs until a
+complete open-source regeneration path is demonstrated. No proprietary
+commercial licence is required by this producer, but a source-only claim for
+those decks would be premature. See the [SDK guide](../docs/compiler/SDK.md)
+and the laboratory's dated SDK report for the exact matrix and remaining gates.

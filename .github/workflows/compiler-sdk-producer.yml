@@ -1,0 +1,71 @@
+name: Modern compiler SDK source producer
+
+# Source-only producer gate; no release or binary-publication job is attached.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-tools:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: macos-15-arm64
+            cc: gcc-16
+            cxx: g++-16
+          - host: ubuntu-24.04-arm
+            cc: gcc
+            cxx: g++
+    runs-on: ${{ matrix.host }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Host prerequisites on macOS
+        if: runner.os == 'macOS'
+        run: brew install gcc gmp mpfr libmpc isl
+      - name: Host prerequisites on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
+            python3 patch xz-utils make
+      - name: Extract and verify pinned source
+        run: |
+          python3 tools/compiler_sdk.py extract --out "$RUNNER_TEMP/sdk-source"
+          cd "$RUNNER_TEMP/sdk-source"
+          python3 tools/compiler_sdk.py prepare --cache "$RUNNER_TEMP/archives" \
+            --work "$RUNNER_TEMP/sdk-build" --download
+      - name: Build cross tools from source
+        run: |
+          cd "$RUNNER_TEMP/sdk-source"
+          python3 tools/compiler_sdk.py build-tools --work "$RUNNER_TEMP/sdk-build" \
+            --cc '${{ matrix.cc }}' --cxx '${{ matrix.cxx }}' --jobs 6
+          cat "$RUNNER_TEMP/sdk-build/tools.json"
+      - name: Historical profile object smoke
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP/sdk-source"
+          printf '%s\n' 'int sdk_ci_probe(void) { return 42; }' > "$RUNNER_TEMP/sdk-ci-probe.c"
+          "$RUNNER_TEMP/sdk-build/install/gcc/bin/s390-linux-gnu-gcc" \
+            -B"$RUNNER_TEMP/sdk-build/install/binutils/bin/" \
+            -S -O2 -std=gnu99 -ffreestanding -fno-pic -fno-pie \
+            -ms370-profile=vm370-4381-v1 "$RUNNER_TEMP/sdk-ci-probe.c" \
+            -o "$RUNNER_TEMP/sdk-ci-probe.s"
+          cc -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror \
+            tools/s370_check.c -o "$RUNNER_TEMP/s370_check"
+          "$RUNNER_TEMP/s370_check" annotate vm370-4381-v1 \
+            "$RUNNER_TEMP/sdk-ci-probe.s" "$RUNNER_TEMP/sdk-ci-probe.profile.s"
+          "$RUNNER_TEMP/sdk-build/install/binutils/bin/s390-linux-gnu-as" \
+            -m31 -mesa "$RUNNER_TEMP/sdk-ci-probe.profile.s" \
+            -o "$RUNNER_TEMP/sdk-ci-probe.o"
+          "$RUNNER_TEMP/s370_check" input vm370-4381-v1 \
+            "$RUNNER_TEMP/sdk-ci-probe.o"

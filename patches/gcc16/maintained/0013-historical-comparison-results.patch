@@ -1,0 +1,119 @@
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index e2af6d5cf5df32fbbb4a395cb541554e057cf66a..47b0207e7ca3027da301c7d7d665c276cc7e4fe7 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -6952,6 +6952,11 @@ s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
+   else
+     return false;
+ 
++  /* Historical S/370 has neither ALC nor SLB.  Let generic expansion
++     materialize comparisons and conditional arithmetic with branches.  */
++  if (TARGET_S370)
++    return false;
++
+   /* Try ADD LOGICAL WITH CARRY.  */
+   if (increment == const1_rtx)
+     {
+diff --git a/gcc/config/s390/s390.md b/gcc/config/s390/s390.md
+index be78254da2e00d19cb060d77ada25c293e4a23f2..29c85fa1fa7973839f5b9f4b17a971332e0581da 100644
+--- a/gcc/config/s390/s390.md
++++ b/gcc/config/s390/s390.md
+@@ -7251,7 +7251,7 @@
+           (match_dup 1)))
+    (set (match_operand:GPR 0 "register_operand" "=d,d")
+         (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+-  ""
++  "!TARGET_S370"
+   "@
+    alc<g>r\t%0,%2
+    alc<g>\t%0,%2"
+@@ -7267,7 +7267,7 @@
+                     (match_operand:GPR 2 "general_operand" "d,T"))
+           (match_dup 1)))
+    (clobber (match_scratch:GPR 0 "=d,d"))]
+-  "s390_match_ccmode (insn, CCL1mode)"
++  "!TARGET_S370 && s390_match_ccmode (insn, CCL1mode)"
+   "@
+    alc<g>r\t%0,%2
+    alc<g>\t%0,%2"
+@@ -7286,7 +7286,7 @@
+           (match_dup 2)))
+    (set (match_operand:GPR 0 "register_operand" "=d,d")
+         (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+-  "s390_match_ccmode (insn, CCL1mode)"
++  "!TARGET_S370 && s390_match_ccmode (insn, CCL1mode)"
+   "@
+    alc<g>r\t%0,%2
+    alc<g>\t%0,%2"
+@@ -7301,7 +7301,7 @@
+                     (match_operand:GPR 2 "general_operand" "d,T"))
+           (match_dup 2)))
+    (clobber (match_scratch:GPR 0 "=d,d"))]
+-  "s390_match_ccmode (insn, CCL1mode)"
++  "!TARGET_S370 && s390_match_ccmode (insn, CCL1mode)"
+   "@
+    alc<g>r\t%0,%2
+    alc<g>\t%0,%2"
+@@ -7317,7 +7317,7 @@
+           (const_int 0)))
+    (set (match_operand:GPR 0 "register_operand" "=d,d")
+         (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+-  "s390_match_ccmode (insn, CCLmode)"
++  "!TARGET_S370 && s390_match_ccmode (insn, CCLmode)"
+   "@
+    alc<g>r\t%0,%2
+    alc<g>\t%0,%2"
+@@ -7330,7 +7330,7 @@
+                             (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+                   (match_operand:GPR 2 "general_operand" "d,T")))
+    (clobber (reg:CC CC_REGNUM))]
+-  ""
++  "!TARGET_S370"
+   "@
+    alc<g>r\t%0,%2
+    alc<g>\t%0,%2"
+@@ -7371,7 +7371,7 @@
+           (const_int 0)))
+    (set (match_operand:GPR 0 "register_operand" "=d,d")
+         (minus:GPR (minus:GPR (match_dup 1) (match_dup 2)) (match_dup 3)))]
+-  "s390_match_ccmode (insn, CCLmode)"
++  "!TARGET_S370 && s390_match_ccmode (insn, CCLmode)"
+   "@
+    slb<g>r\t%0,%2
+    slb<g>\t%0,%2"
+@@ -7385,7 +7385,7 @@
+                               (match_operand:GPR 2 "general_operand" "d,T"))
+                    (match_operand:GPR 3 "s390_slb_comparison" "")))
+    (clobber (reg:CC CC_REGNUM))]
+-  ""
++  "!TARGET_S370"
+   "@
+    slb<g>r\t%0,%2
+    slb<g>\t%0,%2"
+@@ -7402,7 +7402,7 @@
+ 	  (match_dup 1)))
+    (set (match_operand:GPR 0 "register_operand" "=d,d")
+ 	(minus:GPR (minus:GPR (match_dup 1) (match_dup 2)) (match_dup 3)))]
+-  ""
++  "!TARGET_S370"
+   "@
+    slb<g>r\t%0,%2
+    slb<g>\t%0,%2"
+@@ -7428,7 +7428,7 @@
+   [(set (match_operand:GPR 0 "register_operand" "=&d")
+         (match_operand:GPR 1 "s390_alc_comparison" ""))
+    (clobber (reg:CC CC_REGNUM))]
+-  ""
++  "!TARGET_S370"
+   "#"
+   "&& reload_completed"
+   [(set (match_dup 0) (const_int 0))
+@@ -7442,7 +7442,7 @@
+   [(set (match_operand:GPR 0 "register_operand" "=&d")
+         (match_operand:GPR 1 "s390_slb_comparison" ""))
+    (clobber (reg:CC CC_REGNUM))]
+-  ""
++  "!TARGET_S370"
+   "#"
+   "&& reload_completed"
+   [(set (match_dup 0) (const_int 0))

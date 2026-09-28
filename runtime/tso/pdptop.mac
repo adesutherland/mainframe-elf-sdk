@@ -1,0 +1,14 @@
+* Mainframe Lab configuration of the pinned PDPCLIB service assembler.
+* MVSSUPA retains its notices; the PDSE correction is a separate patch.
+* Upstream switch names are separate from our C ABI/profile names.
+* S390 selects ordinary AMODE31 services and LOC=RES storage behavior.
+         GBLC  &COMP,&ZSYS,&XSYS,&ZAM64,&STEPD,&OS,&OUTM
+&COMP    SETC  'GCC'
+&ZSYS    SETC  'S390'
+&XSYS    SETC  'ZARCH'
+&ZAM64   SETC  'NO'
+&STEPD   SETC  'YES'
+&OUTM    SETC  'M'
+&OS      SETC  'MVS'
+         AMODE 31
+         RMODE ANY

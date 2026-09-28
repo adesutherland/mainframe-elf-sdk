@@ -1,0 +1,281 @@
+diff --git a/gcc/config.gcc b/gcc/config.gcc
+index 743421768eadfd4ecc3a49388cd53983cae0111e..683667463235fa7c07cb551170be3c68a4f28b04 100644
+--- a/gcc/config.gcc
++++ b/gcc/config.gcc
+@@ -595,6 +595,8 @@ sparc*-*-*)
+ 	;;
+ s390*-*-*)
+ 	cpu_type=s390
++	extra_objs="${extra_objs} s370.o"
++	extra_options="${extra_options} s370/s370.opt"
+ 	d_target_objs="s390-d.o"
+ 	extra_options="${extra_options} fused-madd.opt"
+ 	extra_headers="s390intrin.h htmintrin.h htmxlintrin.h vecintrin.h"
+@@ -3332,7 +3334,7 @@ s390-*-linux*)
+ 	if test x$enable_targets = xall; then
+ 		tmake_file="${tmake_file} s390/t-linux64"
+ 	fi
+-	tmake_file="${tmake_file} s390/t-s390"
++	tmake_file="${tmake_file} s390/t-s390 s370/t-s370"
+ 	;;
+ s390x-*-linux*)
+ 	tm_file="s390/s390x.h s390/s390.h elfos.h gnu-user.h linux.h glibc-stdint.h s390/linux.h"
+@@ -3342,7 +3344,7 @@ s390x-*-linux*)
+ 	md_file=s390/s390.md
+ 	extra_modes=s390/s390-modes.def
+ 	out_file=s390/s390.cc
+-	tmake_file="${tmake_file} s390/t-linux64 s390/t-s390"
++	tmake_file="${tmake_file} s390/t-linux64 s390/t-s390 s370/t-s370"
+ 	;;
+ s390x-ibm-tpf*)
+ 	tm_file="s390/s390x.h s390/s390.h elfos.h glibc-stdint.h s390/tpf.h"
+@@ -3354,7 +3356,7 @@ s390x-ibm-tpf*)
+ 	out_file=s390/s390.cc
+ 	thread_file='tpf'
+ 	extra_options="${extra_options} s390/tpf.opt"
+-	tmake_file="${tmake_file} s390/t-s390"
++	tmake_file="${tmake_file} s390/t-s390 s370/t-s370"
+ 	;;
+ sh-*-elf* | sh[12346l]*-*-elf* | \
+   sh-*-linux* | sh[2346lbe]*-*-linux* | \
+diff --git a/gcc/config/s370/s370-protos.h b/gcc/config/s370/s370-protos.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..96e95bdb6045e26d510431a80c28b8933463984d
+--- /dev/null
++++ b/gcc/config/s370/s370-protos.h
+@@ -0,0 +1,14 @@
++/* Experimental historical S/370 support, split for Mainframe Lab,
++   19 September 2026, from the downstream GCC 16.2 S/390 proof.
++   The parent S/390 code is Copyright (C) 1999-2026 Free Software
++   Foundation, Inc.; contributors include Hartmut Penner, Ulrich Weigand
++   and Andreas Krebbel. Original notices remain in the parent files.
++
++   This file is part of GCC and is distributed under the GNU General
++   Public License, version 3 or (at your option) any later version,
++   WITHOUT ANY WARRANTY. See COPYING3 for the full licence. */
++
++extern const char *s390_output_s370_ri (const char *, rtx, rtx);
++extern const char *s390_output_s370_base (rtx, rtx);
++extern const char *s390_output_s370_jump (rtx, rtx);
++extern void s390_s370_override_options (struct gcc_options *);
+diff --git a/gcc/config/s370/s370.cc b/gcc/config/s370/s370.cc
+new file mode 100644
+index 0000000000000000000000000000000000000000..019392b3c23ea683a8af8e068de010e2554c5061
+--- /dev/null
++++ b/gcc/config/s370/s370.cc
+@@ -0,0 +1,81 @@
++/* Experimental historical S/370 support, split for Mainframe Lab,
++   19 September 2026, from the downstream GCC 16.2 S/390 proof.
++   The parent S/390 code is Copyright (C) 1999-2026 Free Software
++   Foundation, Inc.; contributors include Hartmut Penner, Ulrich Weigand
++   and Andreas Krebbel. Original notices remain in the parent files.
++
++   This file is part of GCC and is distributed under the GNU General
++   Public License, version 3 or (at your option) any later version,
++   WITHOUT ANY WARRANTY. See COPYING3 for the full licence. */
++
++#define IN_TARGET_CODE 1
++#include "config.h"
++#include "system.h"
++#include "coretypes.h"
++#include "backend.h"
++#include "rtl.h"
++#include "tm_p.h"
++#include "output.h"
++#include "diagnostic-core.h"
++#include "flags.h"
++
++/* Experimental historical instruction sequences.  Inline literals avoid
++   creating new pseudos or constant-pool RTL after register allocation.
++   Numeric labels are local to each sequence.  r1 is fixed by the option;
++   every accepted image must additionally pass the external opcode audit.  */
++const char *
++s390_output_s370_ri (const char *opcode, rtx reg, rtx value)
++{
++  if (REGNO (reg) == 1)
++    fatal_error (input_location, "experimental S/370 scratch register conflict");
++  rtx args[2] = { reg, value };
++  output_asm_insn ("balr\t%%r1,0\n0:\n\tb\t2f-0b(%%r1)\n1:\n\t.short\t%h1\n2:", args);
++  char text[80];
++  snprintf (text, sizeof text, "%s\t%%0,1b-0b(%%%%r1)", opcode);
++  output_asm_insn (text, args);
++  return "";
++}
++
++const char *
++s390_output_s370_base (rtx reg, rtx label)
++{
++  rtx args[2] = { reg, label };
++  output_asm_insn ("balr\t%0,0\n0:\n\tb\t2f-0b(%0)\n\t.balign\t4\n1:\n\t.long\t%l1\n2:\n\tl\t%0,1b-0b(%0)", args);
++  return "";
++}
++
++const char *
++s390_output_s370_jump (rtx label, rtx condition)
++{
++  rtx args[2] = { label, condition ? GEN_INT (s390_branch_condition_mask (condition) ^ 15) : const0_rtx };
++  output_asm_insn ("balr\t%%r1,0\n0:", args);
++  if (condition)
++    output_asm_insn ("bc\t%c1,3f-0b(%%r1)", args);
++  output_asm_insn ("l\t%%r1,1f-0b(%%r1)\n\tbr\t%%r1\n\t.balign\t4\n1:\n\t.long\t%l0\n3:", args);
++  return "";
++}
++
++/* Called at the original point in the S/390 option override hook. */
++void
++s390_s370_override_options (struct gcc_options *opts)
++{
++  /* Fail closed on modes outside the bounded historical proof.  The
++     public interface remains the 31-bit ELF ABI inside a 24-bit image.  */
++  if (opts->x_s390_s370)
++    {
++      if (TARGET_64BIT_P (opts->x_target_flags)
++          || TARGET_ZARCH_P (opts->x_target_flags)
++          || !TARGET_SOFT_FLOAT_P (opts->x_target_flags)
++          || opts->x_flag_pic || opts->x_flag_pie
++          || opts->x_flag_stack_protect || opts->x_flag_split_stack
++          || opts->x_flag_stack_clash_protection
++          || opts->x_profile_flag
++          || opts->x_s390_arch != PROCESSOR_2064_Z900)
++        error ("experimental S/370 requires -m31 -mesa -msoft-float, "
++               "non-PIC code, no profiling/stack instrumentation, "
++               "and the default architecture");
++      opts->x_flag_optimize_sibling_calls = 0;
++      opts->x_flag_shrink_wrap = 0;
++      opts->x_flag_shrink_wrap_separate = 0;
++    }
++}
+diff --git a/gcc/config/s370/s370.opt b/gcc/config/s370/s370.opt
+new file mode 100644
+index 0000000000000000000000000000000000000000..ba44ede134072f4fb48b83a8f29b60640cdffd3a
+--- /dev/null
++++ b/gcc/config/s370/s370.opt
+@@ -0,0 +1,7 @@
++; Experimental historical S/370 option, split for Mainframe Lab, 19 September 2026.
++; Part of GCC, GPL-3.0-or-later, WITHOUT ANY WARRANTY; see COPYING3.
++; The original S/390 options retain their FSF notices in s390/s390.opt.
++
++mexperimental-s370
++Target Var(s390_s370) Init(0) Save
++Experimental audited historical S/370 integer subset; reserves r1.
+diff --git a/gcc/config/s370/t-s370 b/gcc/config/s370/t-s370
+new file mode 100644
+index 0000000000000000000000000000000000000000..f26035bdc9e0290f5dfacc004df37a22f84cf02d
+--- /dev/null
++++ b/gcc/config/s370/t-s370
+@@ -0,0 +1,11 @@
++# Mainframe Lab historical target integration, 19 September 2026.
++# Part of GCC, GPL-3.0-or-later, WITHOUT ANY WARRANTY; see COPYING3.
++
++s370.o: $(srcdir)/config/s370/s370.cc $(CONFIG_H) $(SYSTEM_H) coretypes.h \
++  $(BACKEND_H) $(RTL_H) $(TM_P_H) $(OUTPUT_H) $(FLAGS_H) \
++  $(srcdir)/config/s370/s370-protos.h
++	$(COMPILE) $<
++	$(POSTCOMPILE)
++
++# The parent target and generated recogniser call the historical helpers.
++insn-output.o s390.o: $(srcdir)/config/s370/s370-protos.h
+diff --git a/gcc/config/s390/s390-protos.h b/gcc/config/s390/s390-protos.h
+index 96353f9952ff22d06b5316ad7a50864fadb2b838..b990c296d5aac6f9e729db3027bcaea1f55a65e8 100644
+--- a/gcc/config/s390/s390-protos.h
++++ b/gcc/config/s390/s390-protos.h
+@@ -142,9 +142,7 @@ extern void s390_split_access_reg (rtx, rtx *, rtx *);
+ 
+ extern void print_operand_address (FILE *, rtx);
+ extern void print_operand (FILE *, rtx, int);
+-extern const char *s390_output_s370_ri (const char *, rtx, rtx);
+-extern const char *s390_output_s370_base (rtx, rtx);
+-extern const char *s390_output_s370_jump (rtx, rtx);
++#include "config/s370/s370-protos.h"
+ extern void s390_output_pool_entry (rtx, machine_mode, unsigned int);
+ extern bool s390_const_int_pool_entry_p (rtx, HOST_WIDE_INT *);
+ extern int s390_label_align (rtx_insn *);
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index 538fec67fe23cee553df749fcf7eefe5517b86ab..fe6fbb064db50273d93441dc5d5f38c2f1d659d9 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -15033,42 +15033,6 @@ s390_emit_call (rtx addr_location, rtx tls_call, rtx result_reg,
+ }
+ 
+ 
+-/* Experimental historical instruction sequences.  Inline literals avoid
+-   creating new pseudos or constant-pool RTL after register allocation.
+-   Numeric labels are local to each sequence.  r1 is fixed by the option;
+-   every accepted image must additionally pass the external opcode audit.  */
+-const char *
+-s390_output_s370_ri (const char *opcode, rtx reg, rtx value)
+-{
+-  if (REGNO (reg) == 1)
+-    fatal_error (input_location, "experimental S/370 scratch register conflict");
+-  rtx args[2] = { reg, value };
+-  output_asm_insn ("balr\t%%r1,0\n0:\n\tb\t2f-0b(%%r1)\n1:\n\t.short\t%h1\n2:", args);
+-  char text[80];
+-  snprintf (text, sizeof text, "%s\t%%0,1b-0b(%%%%r1)", opcode);
+-  output_asm_insn (text, args);
+-  return "";
+-}
+-
+-const char *
+-s390_output_s370_base (rtx reg, rtx label)
+-{
+-  rtx args[2] = { reg, label };
+-  output_asm_insn ("balr\t%0,0\n0:\n\tb\t2f-0b(%0)\n\t.balign\t4\n1:\n\t.long\t%l1\n2:\n\tl\t%0,1b-0b(%0)", args);
+-  return "";
+-}
+-
+-const char *
+-s390_output_s370_jump (rtx label, rtx condition)
+-{
+-  rtx args[2] = { label, condition ? GEN_INT (s390_branch_condition_mask (condition) ^ 15) : const0_rtx };
+-  output_asm_insn ("balr\t%%r1,0\n0:", args);
+-  if (condition)
+-    output_asm_insn ("bc\t%c1,3f-0b(%%r1)", args);
+-  output_asm_insn ("l\t%%r1,1f-0b(%%r1)\n\tbr\t%%r1\n\t.balign\t4\n1:\n\t.long\t%l0\n3:", args);
+-  return "";
+-}
+-
+ /* Implement TARGET_CONDITIONAL_REGISTER_USAGE.  */
+ 
+ static void
+@@ -16674,25 +16638,7 @@ s390_option_override_internal (struct gcc_options *opts,
+ 
+   opts->x_s390_tune_flags = processor_flags_table[opts->x_s390_tune];
+ 
+-  /* Fail closed on modes outside the bounded historical proof.  The
+-     public interface remains the 31-bit ELF ABI inside a 24-bit image.  */
+-  if (opts->x_s390_s370)
+-    {
+-      if (TARGET_64BIT_P (opts->x_target_flags)
+-          || TARGET_ZARCH_P (opts->x_target_flags)
+-          || !TARGET_SOFT_FLOAT_P (opts->x_target_flags)
+-          || opts->x_flag_pic || opts->x_flag_pie
+-          || opts->x_flag_stack_protect || opts->x_flag_split_stack
+-          || opts->x_flag_stack_clash_protection
+-          || opts->x_profile_flag
+-          || opts->x_s390_arch != PROCESSOR_2064_Z900)
+-        error ("experimental S/370 requires -m31 -mesa -msoft-float, "
+-               "non-PIC code, no profiling/stack instrumentation, "
+-               "and the default architecture");
+-      opts->x_flag_optimize_sibling_calls = 0;
+-      opts->x_flag_shrink_wrap = 0;
+-      opts->x_flag_shrink_wrap_separate = 0;
+-    }
++  s390_s370_override_options (opts);
+ 
+   /* Sanity checks.  */
+   if (opts->x_s390_arch == PROCESSOR_NATIVE
+diff --git a/gcc/config/s390/s390.opt b/gcc/config/s390/s390.opt
+index 7cef7cd26f38c3d5fe41c1b698eff7b2e6d91fdf..93bd55a07e9dfe70995e504a13890f78b7a9d1c3 100644
+--- a/gcc/config/s390/s390.opt
++++ b/gcc/config/s390/s390.opt
+@@ -43,10 +43,6 @@ int s390_tune_flags
+ Variable
+ long s390_cost_pointer
+ 
+-mexperimental-s370
+-Target Var(s390_s370) Init(0) Save
+-Experimental audited historical S/370 integer subset; reserves r1.
+-
+ m31
+ Target RejectNegative Negative(m64) InverseMask(64BIT)
+ 31 bit ABI.

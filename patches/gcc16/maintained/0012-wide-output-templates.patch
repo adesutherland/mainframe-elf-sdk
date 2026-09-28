@@ -1,0 +1,22 @@
+diff --git a/gcc/config/s390/s390.md b/gcc/config/s390/s390.md
+index 562475d53820920019bcc83f8eea97c29373b72d..be78254da2e00d19cb060d77ada25c293e4a23f2 100644
+--- a/gcc/config/s390/s390.md
++++ b/gcc/config/s390/s390.md
+@@ -6372,7 +6372,7 @@
+                  (match_operand:DI 2 "general_operand" "d")))
+    (clobber (reg:CC CC_REGNUM))]
+   "TARGET_S370"
+-  "{ return s390_output_s370_di_arithmetic (operands[0], operands[2], false); }"
++  { return s390_output_s370_di_arithmetic (operands[0], operands[2], false); }
+   [(set_attr "length" "16")])
+ 
+ (define_insn_and_split "*adddi3_31z"
+@@ -6928,7 +6928,7 @@
+                   (match_operand:DI 2 "general_operand" "d")))
+    (clobber (reg:CC CC_REGNUM))]
+   "TARGET_S370"
+-  "{ return s390_output_s370_di_arithmetic (operands[0], operands[2], true); }"
++  { return s390_output_s370_di_arithmetic (operands[0], operands[2], true); }
+   [(set_attr "length" "16")])
+ 
+ (define_insn_and_split "*subdi3_31z"

@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "name": "cms20-esa31-v1",
+  "status": "in-development",
+  "object_identity": "MLAB1;isa=s370-int1-bsm;addr=31;abi=s390-ilp32-r1-v1;chars=utf8;svc=cms20-204;profile=cms20-esa31-v1",
+  "instruction_contract": {
+    "id": "s370-int1-bsm",
+    "compiler": "retained historical integer lowering; no wider compiler ISA",
+    "additional_bridge_instructions": ["BSM"],
+    "services": ["SVC 204"],
+    "encoder": "GNU binutils 2.47, -m31 -mesa",
+    "checker": "tools/s370_check.c",
+    "early_audit": "tools/audit_s370.crexx"
+  },
+  "execution": {
+    "qualified_guest_slice": "z/VM 4.4 service 0302, CMS 20 service 302, ESA virtual machine",
+    "emulator": "SDL Hercules 4.9.1, model 2064",
+    "virtual_memory_bytes": 67108864,
+    "address_bits": 31,
+    "modern_zcms": "unqualified"
+  },
+  "abi": {
+    "id": "s390-ilp32-r1-v1",
+    "source": "docs/compiler/ABI-RUNTIME.md",
+    "byte_order": "big",
+    "int_long_pointer_bits": 32,
+    "long_long_bits": 64,
+    "stack_alignment": 8,
+    "caller_area_bytes": 96,
+    "entry": "runtime/cms/application-entry31.s",
+    "cms_service_bridge": "runtime/cms/svc204.s"
+  },
+  "characters": {
+    "application": "UTF-8 text or explicit binary",
+    "cms_console_and_names": "bounded printable ASCII to IBM-1047",
+    "file_implementation": "opaque binary streams; native text conversion remains CPR-07"
+  },
+  "formats": {
+    "objects": "ELF32 big-endian EM_S390",
+    "identity_section": ".lab.profile",
+    "relocations": ["R_390_32"],
+    "load": "experimental relocatable CMS 20 MODULE, AMODE31 RMODEANY",
+    "direct_module_limit_bytes": 8388608,
+    "direct_module_host_framing": "VMFPLC2 V S"
+  },
+  "compatibility": {"rule": "exact object_identity only", "other_profiles": []},
+  "exclusions": [
+    "historical VM/370", "64-bit addressing or C ABI", "general ISA coverage",
+    "reentrant/resident/shared deployment", "completed cREXX application qualification",
+    "complete libc/C99/floating point", "modern z/CMS qualification"
+  ]
+}

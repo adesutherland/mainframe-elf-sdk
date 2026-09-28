@@ -1,0 +1,3 @@
+; Mainframe Lab, 19 September 2026. Part of GCC, GPL-3.0-or-later.
+; No UrlSuffix for mexperimental-s370: this downstream proof option has
+; no entry in GCC's generated manual. Required companion to s370.opt.

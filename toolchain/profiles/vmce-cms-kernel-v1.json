@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "name": "vmce-cms-kernel-v1",
+  "status": "experimental",
+  "object_identity": "MLAB1;isa=s370-int1;addr=24;abi=s390-ilp32-r1-v1;chars=binary;svc=cms-nucleus1;profile=vmce-cms-kernel-v1",
+  "instruction_contract": {"id": "s370-int1", "address_bits": 24, "new_instruction_extensions": [], "svcs_in_c_objects": false},
+  "abi": {"id": "s390-ilp32-r1-v1", "byte_order": "big", "int_long_pointer_bits": 32, "word_arguments": ["r2", "r3", "r4", "r5", "r6"], "word_result": "r2", "reserved_scratch": "r1", "link": "r14", "stack": "r15", "callee_saved": ["r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13"], "stack_alignment": 8, "caller_area_bytes": 96},
+  "environment": {"language": "freestanding C99", "guest": "VM370CE 1.1.2 non-shared CMS nucleus", "entry_conventions": "explicit assembler glue per native entry; not compiler-generated native linkage", "first_component": "DMSFRES STAT chain calculation", "storage": "entry-owned resident guarded stack; no allocation during traversal", "helpers": ["FSTRD"]},
+  "formats": {"objects": "ELF32 big-endian EM_S390 ET_REL", "relocations": ["R_390_32 RELA"], "native_route": "symbolic IBM assembler -> native ASSEMBLE TEXT -> VMFLOAD", "external_names": "explicit uppercase alphanumeric aliases, 1-8 bytes, no truncation", "component_limit_bytes": 1048576},
+  "compatibility": {"rule": "exact object_identity only", "other_profiles": []},
+  "exclusions": ["application startup/newlib", "writable statics in the initial C component exporter", "floating point", "unqualified helpers", "CP kernel qualification", "nested CMS services in STAT", "shared saved-system stack placement", "31-bit or 64-bit guest execution", "complete C99 qualification"]
+}

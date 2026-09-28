@@ -1,0 +1,17 @@
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index 47b0207e7ca3027da301c7d7d665c276cc7e4fe7..8917cb002d8397ac849f857edb52c3effb60fcd3 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -17659,7 +17659,11 @@ static void
+ s390_asm_file_start (void)
+ {
+   default_file_start ();
+-  s390_asm_output_machine_for_arch (asm_out_file);
++  /* The historical profile is audited against the assembler's explicit
++     -mesa ceiling.  Emitting the inherited -march machine here would
++     override that ceiling when binutils supports .machine.  */
++  if (!TARGET_S370)
++    s390_asm_output_machine_for_arch (asm_out_file);
+ }
+ #endif
+ 

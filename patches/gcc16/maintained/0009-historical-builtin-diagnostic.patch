@@ -1,0 +1,20 @@
+diff --git a/gcc/config/s390/s390.cc b/gcc/config/s390/s390.cc
+index d36ffa0941ae3d483a3a86493c4cf552b1d11106..e2af6d5cf5df32fbbb4a395cb541554e057cf66a 100644
+--- a/gcc/config/s390/s390.cc
++++ b/gcc/config/s390/s390.cc
+@@ -864,6 +864,15 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
+ #define MAX_ARGS 6
+ 
+   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
++  /* None of the S/390-specific builtin facilities belongs to the bounded
++     historical profile.  Check independently of assembler attribute support:
++     otherwise the parent can bypass its feature checks and reach invalid RTL. */
++  if (s370_profile)
++    {
++      error ("machine-specific builtin %qF is unsupported in S/370 profile",
++             fndecl);
++      return const0_rtx;
++    }
+   unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
+   enum insn_code icode;
+   rtx op[MAX_ARGS], pat;

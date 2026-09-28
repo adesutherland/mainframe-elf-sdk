@@ -1,0 +1,9 @@
+diff --git a/gcc/config/s370/s370.opt.urls b/gcc/config/s370/s370.opt.urls
+new file mode 100644
+index 0000000000000000000000000000000000000000..b920e40e375c75a02711702a5f37ad735cabc930
+--- /dev/null
++++ b/gcc/config/s370/s370.opt.urls
+@@ -0,0 +1,3 @@
++; Mainframe Lab, 19 September 2026. Part of GCC, GPL-3.0-or-later.
++; No UrlSuffix for mexperimental-s370: this downstream proof option has
++; no entry in GCC's generated manual. Required companion to s370.opt.

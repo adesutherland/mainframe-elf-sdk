@@ -1,0 +1,36 @@
+--- a/newlib/configure.host
++++ b/newlib/configure.host
+@@ -388,6 +388,11 @@
+ 	newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
+ 	newlib_cflags="${newlib_cflags} -ffunction-sections -fdata-sections "
+ 	;;
++  s390)
++        # Experimental CMS ELF proof: generic C, no Linux syscalls or assembly.
++        machine_dir=
++        have_init_fini=no
++        ;;
+   *)
+ 	echo '***' "Newlib does not support CPU ${host_cpu}" 1>&2
+ 	exit 1
+@@ -891,6 +896,9 @@
+   z8k-*-*)
+ 	syscall_dir=syscalls
+ 	;;
++  s390-*-none)
++        syscall_dir=
++        ;;
+   *)
+ 	newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
+ 	syscall_dir=
+--- a/newlib/libc/include/machine/ieeefp.h
++++ b/newlib/libc/include/machine/ieeefp.h
+@@ -1,3 +1,9 @@
++/* GCC s390 soft-float uses IEEE binary floating representation, big endian.
++   This identifies representation only; floating arithmetic is not qualified. */
++#ifdef __s390__
++#define __IEEE_BIG_ENDIAN
++#endif
++
+ #ifndef __IEEE_BIG_ENDIAN
+ #ifndef __IEEE_LITTLE_ENDIAN
+ 

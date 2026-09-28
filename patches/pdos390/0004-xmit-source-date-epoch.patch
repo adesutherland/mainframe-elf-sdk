@@ -1,0 +1,42 @@
+--- a/pdld/src/xmit.c
++++ b/pdld/src/xmit.c
+@@ -8,6 +8,7 @@
+  * commercial and non-commercial, without any restrictions, without
+  * complying with any conditions and by any means.
+  *****************************************************************************/
++#include <errno.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -98,8 +99,29 @@
+         time_t t;
+         const struct tm *tm;
+ 
+-        time (&t);
+-        tm = localtime (&t);
++        const char *epoch = getenv ("SOURCE_DATE_EPOCH");
++
++        if (epoch != NULL) {
++            char *end;
++            long long value;
++
++            errno = 0;
++            value = strtoll (epoch, &end, 10);
++            if (errno != 0 || epoch == end || *end != '\0'
++                || value < 0 || (long long)(time_t)value != value) {
++                fprintf (stderr, "invalid SOURCE_DATE_EPOCH: %s\n", epoch);
++                exit (EXIT_FAILURE);
++            }
++            t = (time_t)value;
++            tm = gmtime (&t);
++        } else {
++            time (&t);
++            tm = localtime (&t);
++        }
++        if (tm == NULL) {
++            fprintf (stderr, "cannot format XMIT timestamp\n");
++            exit (EXIT_FAILURE);
++        }
+         sprintf (timestr, "%i%02i%02i%02i%02i%02i",
+                 1900 + tm->tm_year, 1 + tm->tm_mon, tm->tm_mday,
+                 tm->tm_hour, tm->tm_min, tm->tm_sec);

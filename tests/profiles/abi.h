@@ -1,0 +1,10 @@
+struct pair { unsigned a, b; };
+struct triple { unsigned a, b, c; };
+struct pair pair_return(unsigned, unsigned);
+unsigned aggregate_args(unsigned, struct pair, unsigned, struct triple, unsigned, unsigned);
+unsigned varargs_copy(unsigned, ...);
+unsigned large_frame(unsigned);
+unsigned dispatch(unsigned, unsigned);
+unsigned shifts(unsigned, unsigned);
+unsigned signed_edges(int, int);
+unsigned generated_pool(unsigned);

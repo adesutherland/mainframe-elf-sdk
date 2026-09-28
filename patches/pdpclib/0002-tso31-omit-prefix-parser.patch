@@ -1,0 +1,293 @@
+--- a/pdpclib/mvssupa.asm
++++ b/pdpclib/mvssupa.asm
+@@ -3826,279 +3826,10 @@
+ *
+ *
+ *
+-***********************************************************************
+-*-                                                                   -*
+-*- TITLE - @@GETEPF                                                  -*
+-*-                                                                   -*
+-*- DESCRIPTION - PROGRAM TO RETURN THE FULL DSN WITH                 -*
+-*-               THE PREFIX FROM THE TSO/E PROFILE.                  -*
+-*-                                                                   -*
+-*- OPERATION - @@GETEPF IS A NON-REENTRANT PROGRAM THAT              -*
+-*-             PERFORMS THE FOLLOWING PROCESSING:                    -*
+-*-                                                                   -*
+-*- 1 - GETS THE DSNAME FROM PARM                                     -*
+-*- 2 - ESTABLISHES ADDRESSABILITY AND SAVES THE CALLER'S REGISTERS   -*
+-*- 3 - USES THE PARSE SERVICE ROUTINE (IKJPARS) TO DETERMINE THE     -*
+-*-     VALIDITY OF THE OPERANDS                                      -*
+-*- 4 - PROVIDES A VALIDITY CHECKING ROUTINE TO GET THE FULLY         -*
+-*-     QUALIFIED DSN AND ITS LENGTH                                  -*
+-*- 5 - RESTORES THE CALLER'S REGISTERS BEFORE RETURNING              -*
+-*- 6 - RETURNS TO THE CALLER WITH REGISTER 15 POINTING TO THE        -*
+-*-     NULL-TERMINATED FULL DSNAME WITH THE PREFIX FROM THE PROFILE  -*
+-*-                                                                   -*
+-*-     >>>>> J. REGINATO-NOV/2020 - BRAZIL <<<<<                     -*
+-*-     >>>>> RELEASED TO THE PUBLIC DOMAIN <<<<<                     -*
+-*-                                                                   -*
+ ***********************************************************************
+-         ENTRY @@GETEPF            ENTRY POINT
+-@@GETEPF SAVE  (14,12),,@@GETEPF-NOV/2020-J.REGINATO
+-*                                  SAVE CALLER'S REGISTERS
+-         LR    R12,R15             ESTABLISH ADDRESSABILITY WITHIN
+-         USING @@GETEPF,R12        THIS CSECT
+-         CNOP  0,4                 FORCE FULLWORD ALIGNMENT
+-         BAL   R1,GETESTRT         BR AROUND STATIC SAVE AREA
+-         DS    18F                 SAVE AREA
+-GETESTRT ST    R1,8(,R13)          PUT THE ADDRESS OF THE NEW SAVE
+-*                                  AREA INTO THE CALLER'S SAVE ARE
+-         ST    R13,4(,R1)          PUT THE ADDRESS OF THE CALLER'S
+-*                                  SAVE AREA INTO THE NEW SAVE AREA
+-         LDVAL R4,24(,R13)         GET THE PARM FROM THE ORIGINAL R1
+-         LR    R13,R1              POINT TO ITS OWN SAVE AREA
+-*
+-*
+-* We need a once-off initialization to get the stub BTL
+-*
+-         L     R2,GETEINIT
+-         LTR   R2,R2
+-         BNZ   DONEGEI
+-* First we just put the routine in, which is all we need if
+-* the module happens to reside BTL
+-         L     R2,=A(@@PCLST)
+-         LA    R14,DSNCHK
+-         STCM  R14,B'0111',13(R2)
+-*
+-         AIF   ('&ZSYS' EQ 'S370').NODSNS  Only S/380+90 needs a stub
+-* Note that module may be above 2 GiB on an AM32 system
+-         TM    @DSNCHK,X'FF'     Loaded above the line?
+-         BZ    EXBTLDSN              No; previous store is sufficient
+-*
+-         LA    R0,DSNCLEN
+-         GETMAIN RU,LV=(0),LOC=BELOW
+-         MVC   0(DSNCLEN,R1),DSNCSTB
+-*
+-         STCM  R1,B'0111',13(R2)
+-*
+-EXBTLDSN DS    0H
+-.NODSNS  ANOP  ,                  Only S/380 etc needs a stub
+-*
+-         L     R2,=F'1'
+-         ST    R2,GETEINIT
+-DONEGEI  DS    0H
+-*
+-***********************************************************************
+-*-       GET THE DSNAME FROM PARM AND FILL IN A NEW BUFFER           -*
+-***********************************************************************
+-         XC    WKCBUF(WKCBUFT),WKCBUF CLEAR THE NEW BUFFER
+-         LDVAL R3,=V(@@CPPL)       LOAD THE CPPL ADDRESS
+-         USING CPPL,R3             AND ESTABLISH ADDRESSABILITY
+-         L     R5,CPPLCBUF         LOAD THE ORIGINAL COMMAND BUFFER
+-         LH    R1,0(,R5)           GET THE BUFFER LENGTH
+-         BCTR  R1,R0               -1 FOR EXECUTE
+-         MVC   WKCBUF(0),0(R5)     COPY THE ORIGINAL BUFFER
+-         EX    R1,*-6              COPY THE ORIGINAL BUFFER
+-         TRT   0(45,R4),WKTRT      SEARCH THE DSNAME FOR \0
+-         BZ    GETEEND             RETURN IF NONE FOUND
+-         SR    R1,R4               GET THE REAL LENGTH
+-         BCTR  R1,R0               -1 FOR EXECUTE
+-         LA    R2,WKCBUFP          POINT TO THE NEW PROMPT BUFFER
+-         LH    R5,WKCBUFO          GET THE OFFSET TO THE DSNAME
+-         AR    R2,R5               ADD THE OFFSET TO THE DSNAME
+-         CLI   0(R2),X'00'         ANY PARM IN THE PROMPT BUFFER?
+-         BNE   GETEOFFK            YES, CONTINUE
+-         LA    R2,1(,R2)           INCREASE POINTER BY 1
+-         LA    R5,1(,R5)           INCREASE OFFSET BY 1
+-         STH   R5,WKCBUFO          SAVE THE NEW OFFSET TO THE DSNAME
+-GETEOFFK ST    R2,WKDSN            SAVE THE POINTER TO THE DSNAME
+-         MVC   0(0,R2),0(R4)       COPY DSNAME TO THE NEW BUFFER
+-         EX    R1,*-6              COPY DSNAME TO THE NEW BUFFER
+-         LA    R0,WKCBUF           GET THE BUFFER START
+-         SR    R2,R0               GET THE PREFIX LENGTH
+-         LA    R1,1(R1,R2)         GET THE TOTAL LENGTH
+-         STH   R1,WKCBUFL          SAVE THE NEW BUFFER LENGTH
+-***********************************************************************
+-*-       CALL THE PARSE ROUTINE TO INCLUDE THE PROFILE PREFIX        -*
+-***********************************************************************
+-         LA    R5,WKPPL            POINT TO THE NEW PPL
+-         USING PPL,R5              ESTABLISH ADDRESSABILITY TO THE PPL
+-         MVC   PPLUPT,CPPLUPT      PUT IN THE UPT ADDRESS FROM CPPL
+-         MVC   PPLECT,CPPLECT      PUT IN THE ECT ADDRESS FROM CPPL
+-         LA    R1,WKCBUF           GET THE ADDRESS OF THE NEW BUFFER
+-         ST    R1,PPLCBUF          PUT IN THE BUFFER ADDRESS
+-*                                  FROM THE CPPL
+-         LA    R1,WKANS            GET THE ADDRESS OF THE PARSE
+-*                                  ANSWER AREA AND
+-         ST    R1,PPLANS           STORE IT IN THE PPL
+-         LA    R1,WKECB            GET THE ADDRESS OF THE ECB AND
+-         ST    R1,PPLECB           PUT IT IN THE PPL
+-         MVC   PPLPCL,=A(@@PCLST)  PUT THE PCL IN THE PPL FOR PARSE
+-         GAMOS ,                   SET AM24 ON S380
+-         CALLTSSR EP=IKJPARS,MF=(E,PPL) INVOKE PARSE
+-         GAMAPP ,                  SET AM31 ON S380
+-***********************************************************************
+-*-       CLEANUP AND TERMINATION PROCESSING                          -*
+-***********************************************************************
+-         ICM   R1,15,WKANS         POINT TO THE PDL
+-         BNP   GETEEND             BR IF NOT VALID
+-         IKJRLSA (R1)              FREE STORAGE THAT PARSE ALLOCATED
+-*                                  FOR THE PDL
+-GETEEND  L     R15,WKDSN           RETURN THE NULL-TERMINATED DSNAME
+-         L     R13,4(,R13)         CHAIN TO PREVIOUS SAVE AREA
+-         RETURN (14,12),RC=(15)    RETURN TO THE CALLER
+-*
+-GETEINIT DC    F'0'
+-*
+-         DROP  ,                   FREE REGISTERS
+-*
+-         AIF   ('&ZSYS' EQ 'S370').NODSNS2  Only S/380+90 needs a stub
+-***********************************************************************
+-*                                                                     *
+-*    DSNCSTB - 24 bit stub                                            *
+-*    This code is not directly executed. It is copied below the line  *
+-*    It is only needed when the program resides above the line.       *
+-*                                                                     *
+-***********************************************************************
+-         PUSH  USING
+-         DROP  ,
+-*
+-         DS    0A            ENSURE MATCHING ALIGNMENT
+-DSNCSTB  SAVE  (14,12),,DSNCSTB    SAVE CALLER'S REGISTERS
+-         LR    R12,R15             ESTABLISH ADDRESSABILITY WITHIN
+-         USING DSNCSTB,R12   DECLARE BASE
+-         CNOP  0,4                 FORCE FULLWORD ALIGNMENT
+-         BAL   R2,DSNCSTRT         BR AROUND STATIC SAVE AREA
+-         DS    18F                 SAVE AREA
+-DSNCSTRT ST    R2,8(,R13)          PUT THE ADDRESS OF THE NEW SAVE
+-*                                  AREA INTO THE CALLER'S SAVE AREA
+-         ST    R13,4(,R2)          PUT THE ADDRESS OF THE CALLER'S
+-*                                  SAVE AREA INTO THE NEW SAVE AREA
+-         LR    R13,R2              POINT TO ITS OWN SAVE AREA
+-*
+-         LA    R13,0(,R13)         Clean R13
+-         LA    R1,0(,R1)           Clean R1
+-*
+-         BSM   R14,0         Save caller's AMODE
+-         LR    R11,R14            Preserve OS return address
+-* Do the mode transition here so that we can have clean
+-* addresses, essential for AM32/64 (not 31)
+-         LA    R5,DSNCNEXT
+-         O     R5,DSNCBOA
+-         BSM   R0,R5
+-DSNCNEXT DS    0H
+-         L     R15,@DSNCHK   Load 31/32-bit routine address
+-         BALR  R14,R15            Call the open exit in AM31
+-         L     R13,4(,R13)        CHAIN TO PREVIOUS SAVE AREA
+-         LR    R14,R11            Restore OS return address
+-         LM    R0,R12,20(R13)
+-         BSM   0,R14              Return to OS in original mode
+-@DSNCHK  DC    A(DSNCHK)     AM31/32 main routine address
+-DSNCBOA  DC    A(0)
+-         LTORG
+-DSNCLEN  EQU   *-DSNCSTB
+-         POP   USING
+-         SPACE 2
+-.NODSNS2 ANOP  ,                  Only S/380 etc needs a stub
+-*
+-*
+-*
+-***********************************************************************
+-*-       DSNCHK - IKJPOSIT VALIDITY CHECKING ROUTINE                 -*
+-*-                                                                   -*
+-*-       RETURN THE DSN AND ITS LENGTH WITH RETURN CODE ALWAYS 0     -*
+-***********************************************************************
+-DSNCHK   SAVE  (14,12),,DSNCHK     SAVE CALLER'S REGISTERS
+-         LR    R12,R15             ESTABLISH ADDRESSABILITY WITHIN
+-         USING DSNCHK,R12          THIS CSECT
+-         L     R2,0(,R1)           GET THE ADDRESS OF THE PDE
+-         USING DSNDSECT,R2         AND ESTABLISH ADDRESSABILITY TO
+-*                                  OUR MAPPING OF THE PDE
+-         CNOP  0,4                 FORCE FULLWORD ALIGNMENT
+-         BAL   R1,DSNSTART         BR AROUND STATIC SAVE AREA
+-         DS    18F                 SAVE AREA
+-DSNSTART ST    R1,8(,R13)          PUT THE ADDRESS OF THE NEW SAVE
+-*                                  AREA INTO THE CALLER'S SAVE ARE
+-         ST    R13,4(,R1)          PUT THE ADDRESS OF THE CALLER'S
+-*                                  SAVE AREA INTO THE NEW SAVE AREA
+-         LR    R13,R1              POINT TO ITS OWN SAVE AREA
+-***********************************************************************
+-*-       RETURN THE DSNAME FROM PARSER                               -*
+-***********************************************************************
+-         L     R4,DSNPTR           POINT TO THE DSN
+-         LH    R1,DSNLEN           GET THE DSN LENGTH
+-         BCTR  R1,R0               MINUS 1
+-         L     R3,WKDSN            GET THE DSNAME POINTER
+-         XC    0(45,R3),0(R3)      CLEAR IT
+-         MVC   0(0,R3),0(R4)       MOVE DSN
+-         EX    R1,*-6              MOVE DSN WITH PROPER LENGTH
+-DSNOK    L     R13,4(,R13)         CHAIN TO PREVIOUS SAVE AREA
+-         RETURN (14,12),RC=0       RETURN TO THE CALLER WITH RC=0
+-***********************************************************************
+-*-       PARSE MACROS USED TO DESCRIBE THE COMMAND OPERANDS          -*
+-***********************************************************************
+-* Can't use VALIDCK=DSNCHK because it generates an AL3, preventing
+-* relocation when RMODE ANY.
+-@@PCLST  IKJPARM DSECT=PDL         START DEFINITION
+-PCLDSN   IKJPOSIT DSNAME,USID,     PARSE DSN AND APPEND TO PREFIX      X
+-               VALIDCK=0     * DSNCHK      VALIDITY CHECK ROUTINE
+-         IKJENDP ,                 END DEFINITION
+-*---------------------------------------------------------------------*
+-*-       MAPPING THE PDE BUILT BY PARSE TO DESCRIBE A DSNAME OPERAND -*
+-*---------------------------------------------------------------------*
+-DSNDSECT DSECT                     PDE MAPPING FOR THE DSN
+-DSNPTR   DS    F                   POINTER TO THE DSN
+-DSNLEN   DS    H                   LENGTH OF THE DSN EXCLUDING QUOTES
+-DSNFLG   DS    CL1                 FLAGS BYTE
+-*        0... .... THE DATA SET NAME IS NOT PRESENT
+-*        1... .... THE DATA SET NAME IS PRESENT
+-*        .0.. .... THE DATA SET NAME IS NOT CONTAINED WITHIN QUOTES
+-*        .1.. .... THE DATA SET NAME IS CONTAINED WITHIN QUOTES
+-         DS    CL1                 RESERVED
+-MBRPTR   DS    F                   POINTER TO THE MEMBER NAME
+-MBRLEN   DS    H                   LENGTH OF THE MEMBER NAME
+-*                                  EXCLUDING PARENTHESES
+-MBRFLG   DS    CL1                 FLAGS BYTE
+-*        0... .... THE MEMBER NAME IS NOT PRESENT
+-*        1... .... THE MEMBER NAME IS PRESENT
+-         DS    CL1                 RESERVED
+-PSWPTR   DS    F                   POINTER TO THE DATA SET PASSWORD
+-PSWLEN   DS    H                   LENGTH OF THE PASSWORD
+-PSWFLG   DS    CL1                 FLAGS BYTE
+-*        0... .... THE DATA SET PASSWORD IS NOT PRESENT
+-*        1... .... THE DATA SET PASSWORD IS PRESENT
+-         DS    CL1                 RESERVED
+-*---------------------------------------------------------------------*
+-*-       MAPPING TSO CONTROL BLOCKS                                  -*
+-*---------------------------------------------------------------------*
+-         IKJPPL                    PARSE PARAMETER LIST
+-LENPPL   EQU   *-PPL               LENGTH OF PPL
+-         CSECT
++* TSO31 lean service deck omits unused @@GETEPF and IKJPARM table.   *
++* The five retained FILESVC entry points do not call this parser.    *
+ ***********************************************************************
+-*-       DECLARES THE STATIC WORK AREA                               -*
+-***********************************************************************
+-WKPDE    DS    F                   ADDRESS OF THE PDE FROM PARSE
+-WKECB    DS    F                   CP'S EVENT CONTROL BLOCK
+-WKANS    DS    F                   PARSE ANSWER PLACE
+-WKPPL    DS    CL(LENPPL)          PPL
+-WKDSN    DS    F                   DSNAME POINTER INTO THE BUFFER
+-WKCBUF   DS    0F                  NEW FAKE COMMAND BUFFER
+-WKCBUFL  DS    H                   BUFFER LENGTH
+-WKCBUFO  DS    H                   OFFSET TO THE DSNAME
+-WKCBUFP  DS    CL(8+1)             PROMPT BUFFER PGMNAME + SPACE
+-         DS    CL(44+1)            NULL-TERMINATED DSNAME
+-WKCBUFT  EQU   *-WKCBUF            TOTAL LENGTH
+-WKTRT    DC    X'FF',255X'00'      SEARCH FOR X'00'
+-*
+-*
+-*
+ **********************************************************************
+ *                                                                    *
+ *  TEST31 - see if we are running in AMODE 31                        *
+@@ -4726,8 +4457,6 @@
+          LA    R2,0
+          BSM   R2,0
+          ST    R2,NEEDBOA this will be suitable for ORing
+-         L     R3,=A(DSNCBOA) the DSN check stub needs this too
+-         ST    R2,0(,R3)
+          OI    NEEDBF,NEEDBANY  set flag to say we need BSM switching
+          B     RETURNSU
+ *

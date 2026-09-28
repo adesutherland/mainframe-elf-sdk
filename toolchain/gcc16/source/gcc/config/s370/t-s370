@@ -1,0 +1,11 @@
+# Mainframe Lab historical target integration, 19 September 2026.
+# Part of GCC, GPL-3.0-or-later, WITHOUT ANY WARRANTY; see COPYING3.
+
+s370.o: $(srcdir)/config/s370/s370.cc $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(BACKEND_H) $(RTL_H) $(TM_P_H) $(OUTPUT_H) $(FLAGS_H) \
+  $(srcdir)/config/s370/s370-protos.h
+	$(COMPILE) $<
+	$(POSTCOMPILE)
+
+# The parent target and generated recogniser call the historical helpers.
+insn-output.o s390.o: $(srcdir)/config/s370/s370-protos.h

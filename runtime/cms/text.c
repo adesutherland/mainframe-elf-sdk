@@ -66,10 +66,12 @@ static int read_text(void *cookie,char *out,int count)
             if (rc || length<0 || (unsigned)length>s->capacity) return fail(s,EIO);
             s->position=s->available=0;
             for (int i=0;i<length;++i) {
-                unsigned char bytes[2];
-                unsigned n=lab_1047_utf8(s->record[i],bytes);
-                if (!bytes[0]) return fail(s,EILSEQ);
-                for (unsigned j=0;j<n;++j) s->decoded[s->available++]=bytes[j];
+                if (lab_cms_text_conversion_enabled()) {
+                    unsigned char bytes[2];
+                    unsigned n=lab_1047_utf8(s->record[i],bytes);
+                    if (!bytes[0]) return fail(s,EILSEQ);
+                    for (unsigned j=0;j<n;++j) s->decoded[s->available++]=bytes[j];
+                } else s->decoded[s->available++]=s->record[i];
             }
             s->decoded[s->available++]='\n';
         }
@@ -115,11 +117,15 @@ static int write_text(void *cookie,const char *input,int count)
     }
     for (int i=0;i<count;++i) {
         unsigned scalar=0;
-        int rc=lab_utf8_byte(&s->decoder,bytes[i],&scalar), encoded;
-        if (rc<0 || (rc && !scalar)) return fail(s,EILSEQ);
+        int rc=lab_cms_text_conversion_enabled() ?
+            lab_utf8_byte(&s->decoder,bytes[i],&scalar) :
+            (scalar=bytes[i],1);
+        int encoded;
+        if (rc<0 || (lab_cms_text_conversion_enabled() && rc && !scalar)) return fail(s,EILSEQ);
         if (!rc) continue;
         if (scalar=='\n') { if (emit_record(s)) return -1; continue; }
-        encoded=lab_unicode_1047(scalar);
+        encoded=lab_cms_text_conversion_enabled() ?
+            lab_unicode_1047(scalar) : (int)scalar;
         if (encoded<0) return fail(s,EILSEQ);
         if (append_byte(s,(unsigned)encoded)) return -1;
     }

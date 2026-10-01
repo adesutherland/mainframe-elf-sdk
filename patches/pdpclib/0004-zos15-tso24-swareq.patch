@@ -1,0 +1,65 @@
+--- a/tso24/native/mvssupa.asm
++++ b/tso24/native/mvssupa.asm
+@@ -740,26 +740,24 @@
+ DDCHECK  MVI   OPERF,ORFNOJFC     PRESET FOR BAD JFCB
+          ICM   R1,7,TIOEJFCB      GET JFCB ADDRESS OR TOKEN
+          BZ    OPSERR               NO JFCB ?
+-         L     R15,=A(LOOKSWA)    GET TOKEN CONVERSION
+-         BALR  R14,R15            INVOKE IT
+-         LTR   R6,R15             LOAD AND TEST ADDRESS
+-         BNP   OPSERR               NO JFCB ?
+-*COMP*   AIF   ('&ZSYS' NE 'S390').MVSJFCB
+-*COMP*   XC    DDWSWA(DDWSWAL),DDWSWA  CLEAR SWA LIST FORM
+-*COMP*   LA    R1,DDWSVA          ADDRESS OF JFCB TOKEN
+-*COMP*   ST    R1,DDWEPA
+-*COMP*   MVC   DDWSVA+4(3),TIOEJFCB    JFCB TOKEN
+-*COMP*   SWAREQ FCODE=RL,EPA=DDWEPA,MF=(E,DDWSWA),UNAUTH=YES
+-*COMP*   BXH   R15,R15,OPSERR
+-*COMP*   ICM   R6,15,DDWSVA       LOAD JFCB ADDRESS
+-*COMP*   BZ    OPSERR               NO; SERIOUS PROBLEM
+-*COMP*   AGO   .COMJFCB
+-*MVSJFCB SR    R6,R6              FOR AM31
+-*COMP*   ICM   R6,7,TIOEJFCB      SHOULD NEVER BE ZERO
+-*COMP*   BZ    OPSERR               NO; SERIOUS PROBLEM
+-*COMP*   LA    R6,16(,R6)         SKIP QUEUE HEADER
+-.COMJFCB MVC   MYJFCB(JFCBLGTH),0(R6)   MOVE TO MY STORAGE
+-         OI    DDWFLAG2,CWFDD     DD FOUND
++*        Use the supported SWA lookup for z/OS 1.5 JFCB tokens.
++*        UNAUTH=YES requires AM31; the C caller remains AM24.
++         SAM31
++         XC    OPWSWA(OPWSWAL),OPWSWA
++         LA    R1,OPWSVA
++         ST    R1,OPWEPA
++         MVC   OPWSVA+4(3),TIOEJFCB
++         SWAREQ FCODE=RL,EPA=OPWEPA,MF=(E,OPWSWA),UNAUTH=YES
++         LTR   R15,R15
++         BNZ   DDCERR31
++         ICM   R6,15,OPWSVA
++         BZ    DDCERR31
++         MVC   MYJFCB(JFCBLGTH),0(R6)
++         SAM24
++         B     DDCJOIN
++DDCERR31 SAM24
++         B     OPSERR
++DDCJOIN  OI    DDWFLAG2,CWFDD     DD FOUND
+          MVC   DDADSORG,JFCDSORG  SAVE
+          MVC   DDARECFM,JFCRECFM    DCB
+          MVC   DDALRECL,JFCLRECL      ATTRIBUTES
+@@ -4842,12 +4840,12 @@
+ DDWATTR  DS    16XL8         DS ATTRIBUTES (DSORG,RECFM,X,LRECL,BLKSI)
+ BLDLLIST DS    Y(1,12+2+31*2)     BLDL LIST HEADER
+ BLDLNAME DS    CL8' ',XL(4+2+31*2)    MEMBER NAME AND DATA
+-         AGO   .COMSWA  replaced SWA for cross-assembly compatibility
++*        SWA list storage is needed by the z/OS 1.5 adapter.
+ *COMP*   AIF   ('&ZSYS' NE 'S390').COMSWA
+-DDWEPA   DS    A(DDWSVA)
+-DDWSWA   SWAREQ FCODE=RL,EPA=DDWEPA,MF=L
+-DDWSVA   DS    7A                 (IBM LIES ABOUT 4A)
+-DDWSWAL  EQU   *-DDWSWA           LENGTH TO CLEAR
++OPWEPA   DS    A(OPWSVA)
++OPWSWA   SWAREQ FCODE=RL,EPA=OPWEPA,MF=L
++OPWSVA   DS    7A                 (IBM LIES ABOUT 4A)
++OPWSWAL  EQU   *-OPWSWA           LENGTH TO CLEAR
+ .COMSWA  SPACE 1
+ ZEROES   DS    F             CONSTANT
+ DDWBLOCK DS    F             MAXIMUM BUFFER SIZE NEEDED

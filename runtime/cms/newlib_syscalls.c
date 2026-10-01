@@ -22,7 +22,11 @@
 #include "application.h"
 #endif
 #ifndef LAB_CMS_HEAP_SIZE
+#if defined(__MAINFRAME_LAB_CMS20_ESA31__)
+#define LAB_CMS_HEAP_SIZE (64U*1024U*1024U)
+#else
 #define LAB_CMS_HEAP_SIZE 65536
+#endif
 #endif
 #if defined(__MAINFRAME_LAB_CMS20_ESA31__) && (LAB_CMS_HEAP_SIZE <= 0 || (LAB_CMS_HEAP_SIZE & 7))
 #error CMS 31-bit heap size must be positive and doubleword aligned
@@ -159,7 +163,8 @@ _ssize_t _write(int fd, const void *buffer, size_t length)
     if (fd == 1 || fd == 2) {
         /* Validate before emitting to avoid silent partial conversion. */
         for (size_t i = 0; i < length; ++i)
-            if (bytes[i] != '\n' && lab_ascii_to_ebcdic(bytes[i]) < 0) {
+            if (lab_cms_text_conversion_enabled() && bytes[i] != '\n' &&
+                lab_ascii_to_ebcdic(bytes[i]) < 0) {
                 errno = EILSEQ; return -1;
             }
         for (; done < length; ++done) {
@@ -201,8 +206,10 @@ _ssize_t _read(int fd, void *buffer, size_t length)
                 input_used=input_position=0;
                 for (unsigned i=0;i<count;++i) {
                     unsigned char encoded[2];
-                    unsigned n=lab_1047_utf8(record[i],encoded);
-                    for (unsigned j=0;j<n;++j) input[input_used++]=encoded[j];
+                    if (lab_cms_text_conversion_enabled()) {
+                        unsigned n=lab_1047_utf8(record[i],encoded);
+                        for (unsigned j=0;j<n;++j) input[input_used++]=encoded[j];
+                    } else input[input_used++]=record[i];
                 }
                 input[input_used++]='\n';
             }

@@ -17,7 +17,7 @@ void _exit(int status)
 }
 void abort(void)
 {
-    lab_tso_services->putline("C ABORT",7);
+    lab_tso_services->putline("C ABORT",7,0);
     _exit(12);
 }
 
@@ -32,9 +32,11 @@ int lab_tso_start(const unsigned char *raw, unsigned length,
     int argc=1;
 #ifdef __MAINFRAME_LAB_TSO64__
     if (!services || (services->version!=0x6401U &&
+                      services->version!=0x6402U &&
                       services->version!=LAB_TSO_SERVICE_VERSION)) return 12;
 #else
     if (!services || (services->version!=3 && services->version!=4 &&
+                      services->version!=5 &&
                       services->version!=LAB_TSO_SERVICE_VERSION)) return 12;
 #endif
     lab_tso_services=services;

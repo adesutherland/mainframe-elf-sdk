@@ -3,6 +3,12 @@
    Internal strings are ASCII. Names and console use an explicitly bounded
    character set. File record contents are opaque bytes, without conversion. */
 #include "adapter.h"
+#include "../mainframe_text.h"
+static int text_conversion_enabled = 1;
+void mainframe_set_text_conversion(int enabled)
+{ text_conversion_enabled = enabled != 0; }
+int lab_cms_text_conversion_enabled(void)
+{ return text_conversion_enabled; }
 #ifdef LAB_CMS_APPLICATION
 #include "characters.h"
 int lab_ebcdic_to_ascii(unsigned c)
@@ -180,7 +186,8 @@ int lab_cms_line(const char *text, unsigned length)
     unsigned long regs[2];
     if (!text || length > sizeof bytes) return -1;
     for (unsigned i = 0; i < length; ++i) {
-        int c = lab_ascii_to_ebcdic((unsigned char)text[i]);
+        int c = text_conversion_enabled ?
+            lab_ascii_to_ebcdic((unsigned char)text[i]) : (unsigned char)text[i];
         if (c < 0) return -1;
         bytes[i] = (unsigned char)c;
     }
@@ -218,9 +225,11 @@ int lab_cms_input(unsigned char *bytes, unsigned *length)
     plist.data=bytes;
     plist.capacity=*length;
     /* PAD=BLANK, TYPE=STACK, LOGICAL=YES, TRANS=YES, CASE=MIXED;
-       ATTREST=YES and FORM=SINGLE. PAD=NONE is invalid in line mode. */
+       WAIT=YES, ATTREST=YES and FORM=SINGLE. WAIT=YES issues a program
+       read (VM READ); WAIT=NO lets a null Enter request that read instead
+       of delivering an empty line. PAD=NONE is invalid in line mode. */
     plist.flags1=0xce;
-    plist.flags2=0x40;
+    plist.flags2=0xc0;
     for (unsigned i=0;i<8;++i) plist.fence[i]=255;
     int rc=lab_cms_service(&plist,regs);
     if (!rc) *length=(unsigned)regs[0];

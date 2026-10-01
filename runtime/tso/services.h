@@ -3,14 +3,15 @@
 /* Native assembler owns MVS linkage. Each compiled profile has its own
    pointer width, table version and bridge; tables are never interchangeable. */
 #ifdef __MAINFRAME_LAB_TSO64__
-#define LAB_TSO_SERVICE_VERSION 0x6402U
+#define LAB_TSO_SERVICE_VERSION 0x6403U
 #else
-#define LAB_TSO_SERVICE_VERSION 5U
+#define LAB_TSO_SERVICE_VERSION 6U
 #endif
 typedef unsigned int LabTsoWord;
+#define LAB_TSO_PUTLINE_RAW 0x00524157U
 typedef struct {
     LabTsoWord version;
-    int (*putline)(const char *, LabTsoWord);
+    int (*putline)(const char *, LabTsoWord, LabTsoWord);
     void *(*allocate)(LabTsoWord);
     int (*release)(void *, LabTsoWord);
     int (*filecall)(LabTsoWord, const void *);

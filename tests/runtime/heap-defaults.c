@@ -1,0 +1,12 @@
+/* Preprocess the actual syscall translation unit, then verify its policy.
+   This checks default/override selection, not a host emulation of the ABI. */
+#if LAB_TEST_CMS
+#include "../../runtime/cms/newlib_syscalls.c"
+#define LAB_ACTUAL_HEAP LAB_CMS_HEAP_SIZE
+#else
+#include "../../runtime/tso/io.c"
+#define LAB_ACTUAL_HEAP LAB_TSO_HEAP_SIZE
+#endif
+#if LAB_ACTUAL_HEAP != LAB_EXPECT_HEAP
+#error Unexpected application heap default or override
+#endif

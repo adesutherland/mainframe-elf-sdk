@@ -1,4 +1,8 @@
-# Modern cross-compiler SDK extraction
+# Mainframe ELF SDK
+
+The component names are Mainframe ELF C (`mf-elf-cc`), Mainframe ELF Assembler
+(`mf-elf-as`) and Mainframe ELF Packager (`mf-elf-pack`). These are the agreed
+public interface names; the commands below describe the existing implementation.
 
 This guide describes the local SDK producer and its limits. I keep the modern
 GCC 16.2 route available as a versioned C cross-compiler for historical CMS,
@@ -102,7 +106,12 @@ These are distinct native inputs. The retained `tso-native-decks-v1` manifest
 names its baseline source hashes and ASMA90 job. `runtime/tso/entry31.asm`,
 `runtime/tso64/entry64-any.asm`, PDPCLIB `mvssupa.asm` at pinned PDOS
 revision `0fe81209e78d022b40301f86f97c7f4d3e406d0a`, its three visible
-patches, and `pdptop.mac` are their source trail. PDPCLIB's source notice
+patches, and `pdptop.mac` are their source trail. The SDK's
+[`0004-zos15-tso24-swareq.patch`](../../patches/pdpclib/0004-zos15-tso24-swareq.patch)
+extends the 0001-patched PDPCLIB source for z/OS 1.5 TSO24; the
+[`PDPCLIB patch guide`](../../patches/pdpclib/README.md) pins the input and
+output hashes. The packaged baseline `T24SUP` is not that patched object;
+reassemble the patched source for z/OS 1.5 TSO24 dataset I/O. PDPCLIB's source notice
 credits Paul Edwards and contributors and states its own public-domain claim;
 that notice does not apply to all SDK material. The IBM macro library and
 ASMA90 are native/private prerequisites. No complete open-source regeneration
@@ -178,3 +187,40 @@ and Linux arm64 fresh-source tool builds. A YAML definition is not a hosted
 result. The laboratory's dated SDK report records the actually executed
 producer/consumer matrix and artifact identities; it is not a runtime
 dependency of the standalone source tree.
+
+## Application heap defaults
+
+Future builds use a 64 MiB heap for CMS31 and TSO31, and 128 MiB for LP64
+TSO64. The historical CMS24 default remains 64 KiB; TSO24 uses the maintained
+4 MiB limit. `LAB_CMS_HEAP_SIZE` and `LAB_TSO_HEAP_SIZE` remain explicit build
+overrides. A deliberately small heap belongs to a named failure probe, rather
+than an ordinary application build.
+
+The CMS31 startup reserves a 3 MiB C stack. Its paint count, scan bound and
+stack reservation agree; the existing guard checks remain in place. A native
+assembler measurement used 113,356 bytes, exceeding the earlier 64 KiB stack.
+
+These source defaults do not alter frozen runtime archives or installed
+packages. New runtime variants need separate build and affected guest
+qualification. See the [heap-default change and focused checks](../updates/2026-09-30-heap-defaults.md).
+
+## Application text conversion
+
+New SDK packages built from this source install `<mainframe_text.h>` in all
+five CMS24/31 and TSO24/31/64 application sysroots. Call
+`mainframe_set_text_conversion(0)` before text I/O
+to leave native character bytes unchanged; a nonzero argument restores the
+default conversion. The flag belongs to one runtime instance, not a stream.
+The existing record, newline, fixed-record padding and binary paths retain
+their behavior. CMS plain `fopen` stays byte-oriented; the switch applies to
+the explicit CMS text adapter and the CMS console. TSO `fopen` text and
+terminal I/O use the switch. Generic newlib and `printf` formatting are
+unchanged. The narrow implementation and exact checks are in the
+[dated text-switch report](../updates/2026-09-29-text-conversion.md).
+
+TSO raw console output needs the matching native entry service version 6
+(ILP32) or `0x6403` (LP64). The existing PUTLINE callback skips its translation
+for the runtime's raw request. A changed C adapter linked with an older native
+entry reports `ENOTSUP` on disabled console output; build the updated entry
+object with the same native assembler and bind it with the profile's retained
+PDPCLIB service object.

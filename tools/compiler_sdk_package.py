@@ -159,6 +159,10 @@ def main() -> None:
                         ignore=shutil.ignore_patterns("._*", ".DS_Store"))
         shutil.copy2(ROOT / "toolchain/profiles" / f"{profile}.json",
                      sysroots / profile / "profile.json")
+    for profile in ACTIVE:
+        if profile != "vmkernel":
+            shutil.copy2(ROOT / "runtime/mainframe_text.h",
+                         sysroots / profile / "include/mainframe_text.h")
     kernel = sysroots / "vmkernel"
     kernel.mkdir()
     shutil.copy2(ROOT / "toolchain/profiles/vmkernel.json", kernel / "profile.json")
@@ -188,6 +192,7 @@ def main() -> None:
                     ignore=shutil.ignore_patterns("._*", ".DS_Store"))
     shutil.copytree(ROOT / "runtime/cms", out / "adapters/cms",
                     ignore=shutil.ignore_patterns("._*", ".DS_Store"))
+    shutil.copy2(ROOT / "runtime/mainframe_text.h", out / "adapters/mainframe_text.h")
     copy_files(ROOT / "tests/tso", out / "contracts/tso",
                ("image.ld", "image64.ld", "image64-high.ld", "check_high_entry.py"))
     shutil.copytree(ROOT / "tests/profiles", out / "contracts/profiles",

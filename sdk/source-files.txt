@@ -1,6 +1,9 @@
-# Reviewed source-only compiler SDK extraction; paths relative to lab checkout.
+# Reviewed source-only compiler SDK extraction; paths relative to this SDK checkout.
 .github/workflows/compiler-sdk-producer.yml
 docs/compiler/SDK.md
+docs/updates/2026-09-29-text-conversion.md
+docs/updates/2026-09-30-cms-empty-input.md
+docs/updates/2026-09-30-heap-defaults.md
 patches/gcc16/maintained/0001-historical-proof.patch
 patches/gcc16/maintained/0002-library-integers.patch
 patches/gcc16/maintained/0003-target-source-split.patch
@@ -35,6 +38,7 @@ patches/pdos390/0006-zero-extended-csect.patch
 patches/pdpclib/0001-pdse-no-lstar-check.patch
 patches/pdpclib/0002-tso31-omit-prefix-parser.patch
 patches/pdpclib/0003-tso31-dynal-low-request-pointers.patch
+patches/pdpclib/0004-zos15-tso24-swareq.patch
 patches/pdpclib/README.md
 runtime/cms/adapter.c
 runtime/cms/adapter.h
@@ -62,6 +66,7 @@ runtime/cms/text-codec.h
 runtime/cms/text.c
 runtime/cms/text.h
 runtime/cms/text1047.h
+runtime/mainframe_text.h
 runtime/tso/entry24.asm
 runtime/tso/entry31-any.asm
 runtime/tso/entry31.asm
@@ -92,9 +97,11 @@ systems/vmce/kernel-c/cms_storage.h
 systems/vmce/kernel-c/storage.c
 tests/cms-newlib/linkage-probe.s
 tests/cms-newlib/plain-core.c
+tests/cms-newlib/plain-empty-input.c
 tests/cms-newlib/plain-linkage.c
 tests/cms-newlib/plain-terminal.c
 tests/cms-newlib/plain-text.c
+tests/cms-newlib/text-switch.c
 tests/libc-poc/arithmetic.c
 tests/libc-poc/entry.s
 tests/libc-poc/gcclib.c
@@ -109,12 +116,14 @@ tests/profiles/image.ld
 tests/profiles/matrix.c
 tests/profiles/modern-builtin.c
 tests/profiles/mutate.c
+tests/runtime/heap-defaults.c
 tests/profiles/predefines.c
 tests/profiles/ranges.s
 tests/profiles/support.c
 tests/profiles/target-attribute.c
 tests/profiles/target-pragma.c
 tests/tso/check_high_entry.py
+tests/tso/text-switch.c
 tests/tso/image.ld
 tests/tso/image64-high.ld
 tests/tso/image64.ld
@@ -144,6 +153,7 @@ toolchain/profiles/vm370-4381-v1.json
 toolchain/profiles/vmce-cms-kernel-v1.json
 toolchain/profiles/vmkernel.json
 tools/audit_s370.crexx
+tools/check_heap_defaults.crexx
 tools/compiler_sdk.py
 tools/compiler_sdk_consume.py
 tools/compiler_sdk_package.py

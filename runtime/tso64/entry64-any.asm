@@ -115,7 +115,10 @@ PUTCOPY  MVC   0(1,10),0(2)
          LA    2,1(2)
          BCT   11,PUTCOPY
 * Printable ASCII uses the inverse of runtime/cms/text1047.h.
+         C     4,=X'00524157'
+         BE    PUTNTR
          TR    0(132,9),ATOE
+PUTNTR   EQU   *
          SAM31
          TPUT  (9),(8)
          SAM64
@@ -283,7 +286,7 @@ GSRET    LARL  1,SVCSAVE
          LMG   6,15,0(1)
          BR    14
          DS    0D
-SVCTAB   DC    F'25602',F'0'
+SVCTAB   DC    F'25603',F'0'
          DC    F'0',A(PUTLINE),F'0',A(ALLOCATE)
          DC    F'0',A(RELEASE),F'0',A(FILECALL)
          DC    F'0',A(FINISH),F'0',A(READLINE)

@@ -10,5 +10,10 @@
 *.tar.xz
 __pycache__/
 *.pyc
+*.rxbin
+*.rxas
+*.rxmap
+*.rxbuild.json
+*.crexx-driver.lock
 .DS_Store
 ._*

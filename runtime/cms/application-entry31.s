@@ -35,7 +35,7 @@ cms_entry:
 .Lstart: .long lab_cms_start
 .Lstack: .long lab_stack_caller
 .Lbottom: .long lab_stack_bottom
-.Lblocks: .long 256
+.Lblocks: .long 12288
 .Lsave_pointer: .long lab_cms_saved
 .Lguard_low: .long lab_stack_guard_low
 .Lguard_high: .long lab_stack_guard_high
@@ -77,7 +77,7 @@ lab_cms_return:
  bsm 0,%r14
  .balign 4
 .Lscan_bottom: .long lab_stack_bottom
-.Lscan_size: .long 65536
+.Lscan_size: .long 3145728
 .Lmeasure: .long lab_application_observed
 .Lsaved: .long lab_cms_saved
 .Lcheck_low: .long lab_stack_guard_low
@@ -93,7 +93,7 @@ lab_cms_saved: .long 0
  .section .bss,"aw",@nobits
  .balign 8
 lab_stack_guard_low: .skip 8
-lab_stack_bottom: .skip 65536
+lab_stack_bottom: .skip 3145728
 lab_stack_caller: .skip 96
 lab_stack_guard_high: .skip 8
  .section .note.GNU-stack,"",@progbits

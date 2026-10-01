@@ -1,6 +1,6 @@
-# Modern compiler SDK source extraction
+# Mainframe ELF SDK source inventory
 
-This directory is the source inventory for the separate modern compiler SDK.
+This directory is the source inventory for Mainframe ELF SDK.
 It is a **standalone source extraction**, not a claim that every runtime and
 native adapter can already be rebuilt from source. The full lab
 retains its legacy compiler and independent OS work. The dedicated PDOS
@@ -13,8 +13,9 @@ as described in `sdk/LICENSING.md`. Local packages containing pinned native
 object decks are not public artifacts until their redistribution provenance is
 reviewed.
 
-`source-files.txt` is the reviewed copy list. From the lab checkout, make an
-independent source tree:
+`source-files.txt` is the reviewed copy list. This standalone repository owns
+the maintained source and producer; Mainframe Lab retains experiments and
+qualification records. From this SDK checkout, make an independent source tree:
 
 ```sh
 python3 tools/compiler_sdk.py extract --out /tmp/mainframe-compiler-sdk-source

@@ -1,4 +1,8 @@
-# Mainframe cross-compiler SDK
+# Mainframe ELF SDK
+
+The component names are Mainframe ELF C (`mf-elf-cc`), Mainframe ELF Assembler
+(`mf-elf-as`) and Mainframe ELF Packager (`mf-elf-pack`). These are the agreed
+public interface names; the commands below describe the existing implementation.
 
 This source tree reconstructs a GCC 16.2.0 and GNU binutils 2.47 C
 cross-toolchain for historical CMS, TSO and freestanding kernel components.

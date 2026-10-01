@@ -36,7 +36,7 @@ int raise(int number)
     handler = handlers[i];
     if (handler == SIG_IGN) return 0;
     if (handler == SIG_DFL) {
-        lab_tso_services->putline("UNHANDLED C SIGNAL", 18);
+        lab_tso_services->putline("UNHANDLED C SIGNAL", 18, 0);
         _exit(128 + number);
     }
     handlers[i] = SIG_DFL;

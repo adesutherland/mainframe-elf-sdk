@@ -86,7 +86,10 @@ PUTCOPY  MVC   0(1,10),0(2)
          LA    2,1(2)
          BCT   11,PUTCOPY
 * Printable ASCII uses the inverse of runtime/cms/text1047.h.
+         C     4,=X'00524157'
+         BE    PUTNTR
          TR    0(132,9),ATOE
+PUTNTR   EQU   *
          TPUT  (9),(8)
 PUTOK    SR    2,2
          B     PUTRET
@@ -221,8 +224,9 @@ FINBASE  EQU   *
          USING LABTS24,12
          B     CLEANUP
 NATBASE  DC    A(LABTS24)
-SVCTAB   DC    F'4',A(PUTLINE),A(ALLOCATE),A(RELEASE)
+SVCTAB   DC    F'6',A(PUTLINE),A(ALLOCATE),A(RELEASE)
          DC    A(FILECALL),A(FINISH),A(READLINE)
+         DC    F'0'
 FILESVC  DC    V(@@AOPEN),V(@@AREAD),V(@@AWRITE),V(@@ACLOSE)
          DC    V(@@DYNAL)
 FREEPTR  DS    F

@@ -16,9 +16,16 @@
 #include "text-codec.h"
 #include "sdk-path.h"
 #include "native-args.h"
+#include "../mainframe_text.h"
 #define SLOTS 8
 #ifndef LAB_TSO_HEAP_SIZE
-#define LAB_TSO_HEAP_SIZE (32U*1024U*1024U)
+#if defined(LAB_TSO24)
+#define LAB_TSO_HEAP_SIZE (4U*1024U*1024U)
+#elif defined(__LP64__)
+#define LAB_TSO_HEAP_SIZE (128U*1024U*1024U)
+#else
+#define LAB_TSO_HEAP_SIZE (64U*1024U*1024U)
+#endif
 #endif
 #if LAB_TSO_HEAP_SIZE < 1024 || LAB_TSO_HEAP_SIZE > 536870912 || (LAB_TSO_HEAP_SIZE & 7)
 #error TSO heap must be doubleword aligned and between 1 KiB and 512 MiB
@@ -46,6 +53,9 @@ static unsigned heap_used;
 static unsigned heap_failed_request;
 static void report_heap(void);
 static int last_open_status;
+static int text_conversion_enabled = 1;
+void mainframe_set_text_conversion(int enabled)
+{ text_conversion_enabled = enabled != 0; }
 int lab_tso_last_open_status(void) { return last_open_status; }
 static unsigned char line[132];
 static unsigned line_used;
@@ -231,10 +241,12 @@ static int record(Slot *s)
     if (s->text) {
         /* Preserve fixed-record padding; lexical readers may ignore it. */
         for (unsigned i=start;i<n;++i) {
-            unsigned char bytes[2];
-            unsigned count=lab_1047_utf8(raw[i],bytes);
-            if (!bytes[0]) return error(EILSEQ);
-            for (unsigned j=0;j<count;++j) s->buffer[s->available++]=bytes[j];
+            if (text_conversion_enabled) {
+                unsigned char bytes[2];
+                unsigned count=lab_1047_utf8(raw[i],bytes);
+                if (!bytes[0]) return error(EILSEQ);
+                for (unsigned j=0;j<count;++j) s->buffer[s->available++]=bytes[j];
+            } else s->buffer[s->available++]=raw[i];
         }
         s->buffer[s->available++]='\n';
     } else {
@@ -262,9 +274,11 @@ static _ssize_t read_terminal(void *out,size_t length)
             (!count && (rc==12 || rc==28))) return error(EIO);
         terminal_at=terminal_used=0;
         for (unsigned i=0;i<count;++i) {
-            unsigned char bytes[2];unsigned size=lab_1047_utf8(native[i],bytes);
-            if (!bytes[0]) return error(EILSEQ);
-            for (unsigned j=0;j<size;++j) terminal_input[terminal_used++]=bytes[j];
+            if (text_conversion_enabled) {
+                unsigned char bytes[2];unsigned size=lab_1047_utf8(native[i],bytes);
+                if (!bytes[0]) return error(EILSEQ);
+                for (unsigned j=0;j<size;++j) terminal_input[terminal_used++]=bytes[j];
+            } else terminal_input[terminal_used++]=native[i];
         }
         /* A short native buffer is a continuation, not a line ending. */
         if (rc==0 || rc==24) terminal_input[terminal_used++]='\n';
@@ -312,7 +326,7 @@ static int putline(void)
     s=get(batch_fd);
     if (!s || line_used>s->capacity) return error(EOVERFLOW);
     for (unsigned i=0;i<line_used;++i) {
-        int native=lab_unicode_1047(line[i]);
+        int native=text_conversion_enabled ? lab_unicode_1047(line[i]) : line[i];
         if (native<0) return error(EILSEQ);
         s->buffer[4+i]=(unsigned char)native;
     }
@@ -320,7 +334,16 @@ static int putline(void)
     line_used=0;
     return emit(s);
 #else
-    int rc=lab_tso_services->putline((const char *)line,line_used);
+    int rc;
+#ifdef __MAINFRAME_LAB_TSO64__
+    if (!text_conversion_enabled && lab_tso_services->version<0x6403U)
+        return error(ENOTSUP);
+#else
+    if (!text_conversion_enabled && lab_tso_services->version<6U)
+        return error(ENOTSUP);
+#endif
+    rc=lab_tso_services->putline((const char *)line,line_used,
+                                 text_conversion_enabled ? 0 : LAB_TSO_PUTLINE_RAW);
     line_used=0;return rc?error(EIO):0;
 #endif
 }
@@ -340,17 +363,20 @@ _ssize_t _write(int fd,const void *input,size_t length)
     for (unsigned i=0;i<length;++i) {
         if (!s || s->text) {
             unsigned scalar=0;
-            int rc=lab_utf8_byte(s?&s->decoder:&console_decoder,bytes[i],&scalar);
-            if (rc<0 || (rc && !scalar)) goto bad_encoding;
+            int rc=text_conversion_enabled ?
+                lab_utf8_byte(s?&s->decoder:&console_decoder,bytes[i],&scalar) :
+                (scalar=bytes[i],1);
+            if (rc<0 || (text_conversion_enabled && rc && !scalar)) goto bad_encoding;
             if (!rc) continue;
             if (scalar=='\n') {
                 if (s ? emit(s) : putline()) return -1;
                 continue;
             }
-            if (lab_unicode_1047(scalar)<0) goto bad_encoding;
+            int native=text_conversion_enabled ? lab_unicode_1047(scalar) : (int)scalar;
+            if (native<0) goto bad_encoding;
             if (s) {
                 if (s->used==s->capacity) { s->failed=EOVERFLOW;return error(EOVERFLOW); }
-                s->buffer[4+s->used++]=(unsigned char)lab_unicode_1047(scalar);
+                s->buffer[4+s->used++]=(unsigned char)native;
             } else {
                 if (line_used==sizeof line && putline()) return -1;
                 /* Native PUTLINE translates Latin-1 bytes to IBM1047. */
@@ -497,7 +523,7 @@ static void report_heap(void)
         do { digits[n++]=(char)('0'+value%10);value/=10; } while (value);
         while (n) report[at++]=digits[--n];
     }
-    lab_tso_services->putline(report,at);
+    lab_tso_services->putline(report,at,0);
     {
         const char *label="TSO HEAP BASE=0x";
         uintptr_t value=(uintptr_t)heap;
@@ -506,7 +532,7 @@ static void report_heap(void)
         while (*label) report[at++]=*label++;
         for (unsigned i=sizeof(value)*2;i>0;--i)
             report[at++]=hex[(value>>((i-1)*4))&15U];
-        lab_tso_services->putline(report,at);
+        lab_tso_services->putline(report,at,0);
     }
 #endif
 }

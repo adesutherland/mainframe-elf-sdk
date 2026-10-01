@@ -37,4 +37,6 @@ int lab_cms_line(const char *, unsigned);
 int lab_cms_input(unsigned char *, unsigned *);
 int lab_ascii_to_ebcdic(unsigned);
 int lab_cms_failure(unsigned);
+/* Runtime-internal state shared by the CMS console and text-file adapters. */
+int lab_cms_text_conversion_enabled(void);
 #endif

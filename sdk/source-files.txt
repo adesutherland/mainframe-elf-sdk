@@ -4,6 +4,7 @@ docs/compiler/SDK.md
 docs/updates/2026-09-29-text-conversion.md
 docs/updates/2026-09-30-cms-empty-input.md
 docs/updates/2026-09-30-heap-defaults.md
+docs/updates/2026-10-01-source-publication.md
 patches/gcc16/maintained/0001-historical-proof.patch
 patches/gcc16/maintained/0002-library-integers.patch
 patches/gcc16/maintained/0003-target-source-split.patch

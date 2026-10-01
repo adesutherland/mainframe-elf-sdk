@@ -8,7 +8,7 @@
     "vmkernel"
   ],
   "files_sha256": {
-    ".github/workflows/compiler-sdk-producer.yml": "cbf7f6762cfb052425ba157bbaa9e0c29389cde168f25727419be6f9f4a41388",
+    ".github/workflows/compiler-sdk-producer.yml": "f4ec26fdbfa8b61eaa1469995a5df55acde4b57807edf241c36fd3220cdc5828",
     ".gitignore": "d616acc648613136f788b4bfd770714846f73f65fc72fd483fa892fb03f4915c",
     "LICENSE": "b5f04cf5538f86068dc69a2ede5b71035afcd658d54bc42581696a21ba64c6f9",
     "LICENSING.md": "959929bbb29dc90e42e512f49a0f3bad92facdd622a4bfb2ce18136e9198200f",
@@ -17,6 +17,7 @@
     "docs/updates/2026-09-29-text-conversion.md": "697b98dc8cc5218ec728bb241f13d334370fe9506fa5b995bbe2c40da056fab2",
     "docs/updates/2026-09-30-cms-empty-input.md": "12c7527b1a4908e3ee78f3d35cabb06373f3b92dfad91e0fa6411d35cb3cd108",
     "docs/updates/2026-09-30-heap-defaults.md": "4c5b9fa0cb7969513f0722124320742531563843aea57237c0cc113ac838b8e3",
+    "docs/updates/2026-10-01-source-publication.md": "15914d61392dfbb3c4aeae66df054a6d2945b84df9652db8ddcd1f7b41481f1d",
     "patches/gcc16/maintained/0001-historical-proof.patch": "ebaba26ee1b4f9fefdd3587164900b36388b67bb3959707599832823fe481e50",
     "patches/gcc16/maintained/0002-library-integers.patch": "4b161d9266b5a8c821f695a8e249cec60456c6558f52b3ec0f5f0d9d0dd3c756",
     "patches/gcc16/maintained/0003-target-source-split.patch": "e1eb05c958ab4ad0ca3b55f4407fac30d2d1d73df4abdb52547e415a6e92b925",
@@ -103,7 +104,7 @@
     "sdk/LICENSING.md": "959929bbb29dc90e42e512f49a0f3bad92facdd622a4bfb2ce18136e9198200f",
     "sdk/PROJECT-README.md": "bded075d3cf221b55d3702a99c05aae9c55450f6fd62e85fa9926d78dd84441e",
     "sdk/README.md": "7686475ec2903e84d1efc3b89d1b44b3b09ba78b717fe4529fc197c648b1adc0",
-    "sdk/source-files.txt": "b5d46f179e401bdb2ee5ba0432f3646d4a089d9ae4ce1d9a4d0962ef81bbb25d",
+    "sdk/source-files.txt": "adb931b45ff03660e6cdb7ce443d32530d4a920d5d7e1aed002330b132f4793a",
     "systems/vmce/kernel-c/FSTGLUE.ASSEMBLE": "deb1d564cd01aa6bfc919b07b87fb75e22a44dbb013f63e23464c8623e7b6d3d",
     "systems/vmce/kernel-c/FSTPROD.ASSEMBLE": "f85995cf013256c25390ba00c9087157798ec1798414d13b74f04269bccd1aad",
     "systems/vmce/kernel-c/cms_storage.h": "82263d50b6847df92495058c0610e848ee4f98319cfc2b8bd87428ef4dab08f7",

@@ -14,10 +14,10 @@ permissions:
 
 jobs:
   check:
-    uses: adesutherland/z-pdos/.github/workflows/apple-signing-check.yml@929d3403dcc8bd994941c1f7d6597f9f4b897a78
+    uses: adesutherland/z-pdos/.github/workflows/apple-signing-check.yml@4ab3e1d95264dde1bb46aff933d0699dc08ca211
     with:
       runner: ${{ inputs.runner }}
-      check_revision: 929d3403dcc8bd994941c1f7d6597f9f4b897a78
+      check_revision: 4ab3e1d95264dde1bb46aff933d0699dc08ca211
     secrets:
       APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}

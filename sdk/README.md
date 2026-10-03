@@ -7,9 +7,10 @@ producer, packager and consumer interfaces. The historical patch inputs under
 Assembler, Linker and PDPCLIB source.
 
 This directory also owns the reviewed source inventory for Mainframe ELF SDK.
-The local macOS source-input candidate includes rebuilt runtimes and native
-adapters. Linux package qualification remains open; z/OS 1.5 guest checks
-passed for simple TSO24/31/64 entry calls and the TSO31/64 file subset. The full lab
+The macOS arm64 and Linux x64 source-input packages include rebuilt runtimes
+and native adapters and pass installed six-profile consumers. CMS24/31 guest
+entry checks passed on VM/370 CE and z/VM 4.4; z/OS 1.5 guest checks passed
+for simple TSO24/31/64 entry calls and the TSO31/64 file subset. The full lab
 retains its legacy compiler and independent OS work. The dedicated PDOS
 application target and runtime are outside this SDK; PDOS may exercise
 unchanged TSO binaries through its supported services.
@@ -90,10 +91,10 @@ GCC is GPLv3 with its retained runtime exception; binutils and newlib carry
 their own upstream licences and file notices. PDPCLIB native service source
 retains its own notice. The older bootstrap package retains ASMA90-produced
 decks; the new source-input candidate uses maintained z/PDOS assembler,
-linker and PDPCLIB source instead. Its local macOS installed consumer passes.
+linker and PDPCLIB source instead. Its macOS and Linux installed consumers pass.
 The TSO31/64 file subset covers sequential write/read and PDS read. TSO24
 currently covers the simple entry/return path, with dataset I/O excluded.
-Linux package qualification remains open. See the
+Further service paths and Windows remain separately staged. See the
 [SDK guide](../docs/compiler/SDK.md) and
 [source candidate checkpoint](../docs/updates/2026-10-03-sdk-source-candidate.md)
-for the exact matrix and remaining gates.
+for the exact matrix and qualification limits.

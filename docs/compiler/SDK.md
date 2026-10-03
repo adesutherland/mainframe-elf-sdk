@@ -83,11 +83,12 @@ also compiled and exported. These local results are described in the dated
 source-build report. Classic Assembler now builds checked TSO24, TSO31 and
 both TSO64 entry objects from maintained source. The selected PDPCLIB TSO
 file service now assembles from z/PDOS source and four complete native XMIT
-links pass. A source-input installed candidate passes all six profiles on
-macOS. On z/OS 1.5, its TSO31 and both TSO64 entries passed sequential
+links pass. Source-input installed packages pass all six profiles on macOS
+arm64 and Linux x64. Their CMS24/31 MODULEs returned 42 on VM/370 CE and
+z/VM 4.4. On z/OS 1.5, the TSO31 and both TSO64 entries passed sequential
 write/read and PDS read, while TSO24 passed the simple return path. TSO24
-dataset I/O remains outside the 0.1.0 file subset. Linux installed-package,
-clean-checkout and other service-path guest gates remain open.
+dataset I/O remains outside the 0.1.0 file subset. Other service paths need
+separate guest checks before they are included in a later profile.
 
 The current source route uses checked upstream archives and maintained SDK
 and z/PDOS source. `compiler_sdk_consume.py --producer-c-decks` first builds
@@ -122,9 +123,10 @@ its input archives retain their own older provenance. The separate
 `sdk/scripts/compiler_sdk_source_package.py` takes source-built sysroots,
 Classic tools, native objects and the z/PDOS source root for component
 notices, and installs them without those archives.
-Its independent installed consumer passed on macOS, including complete TSO
-XMIT links. The [source candidate checkpoint](../updates/2026-10-03-sdk-source-candidate.md)
-records inputs, outputs and open release gates.
+Its independent installed consumer passed on macOS arm64 and Linux x64,
+including complete TSO XMIT links. The
+[source candidate checkpoint](../updates/2026-10-03-sdk-source-candidate.md)
+records inputs, outputs and qualification limits.
 
 The retained baseline native TSO entry and service objects are pinned bootstrap
 inputs. `TENTRY.obj` is SHA-256

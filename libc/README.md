@@ -12,4 +12,6 @@ remaining qualification gates are in
 [the release plan](../docs/RELEASE-PLAN.md) and [backlog](doc/BACKLOG.md).
 The TSO24, TSO31 and both TSO64 entry sources assemble with z/PDOS Classic
 Assembler and pass host object checks. A selected source-built TSO PDPCLIB
-service and complete host native links pass; guest checks remain open.
+service and complete host native links pass. CMS24/31 entry checks and the
+selected TSO31/64 sequential and PDS guest paths passed; other services
+remain outside the qualified 0.1.0 subset.

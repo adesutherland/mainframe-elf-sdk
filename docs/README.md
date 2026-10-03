@@ -13,8 +13,8 @@
   both source-built entry decks, selected service interface and host link
   shape at that checkpoint.
 - [Source candidate checkpoint](updates/2026-10-03-sdk-source-candidate.md):
-  complete host native links, installed six-profile macOS candidate and
-  z/OS 1.5 TSO31/64 file subset; Linux installed-package gate remains open.
+  complete host native links, installed six-profile macOS and Linux packages,
+  CMS24/31 entry checks and the z/OS 1.5 TSO31/64 file subset.
 
 Each component has its own README, UPSTREAM.md, AGENTS.md and single
 `doc/BACKLOG.md`. Enduring guides explain current design, the release plan

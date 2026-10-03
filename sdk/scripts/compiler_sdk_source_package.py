@@ -138,6 +138,8 @@ def main() -> None:
     shutil.copy2(ROOT / "libc/src/adapters/mainframe_text.h",
                  out / "adapters/mainframe_text.h")
     (out / "contracts/tso").mkdir(parents=True)
+    shutil.copy2(ROOT / "tests/tso/sdk-member-smoke.rexx",
+                 out / "contracts/tso/sdk-member-smoke.rexx")
     for source, installed in (("tso-image.ld", "image.ld"),
                               ("tso64-image.ld", "image64.ld"),
                               ("tso64-high-image.ld", "image64-high.ld")):

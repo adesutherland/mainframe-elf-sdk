@@ -24,9 +24,14 @@ in the project `docs/RELEASE-PLAN.md`.
 A package produced by `compiler_sdk_source_package.py` includes source-built
 Classic Assembler/Linker binaries and native TSO entry/service objects. Its
 installed consumer also links TSO24, TSO31 and two TSO64 native XMIT
-transports. The package manifest identifies it as a local candidate until
-the host and guest release gates pass.
+transports. Their checked IEBCOPY members are `SDKTS24`, `SDKTS31`,
+`SDKTS64A` and `SDKTS64L`. The package manifest identifies it as a local
+candidate until the host and guest release gates pass.
 
 `notices/` contains the SDK licence scope and the z/PDOS Classic Assembler,
 Classic Linker and PDPCLIB component notices. Each sysroot also carries its
 runtime notices.
+
+`contracts/tso/sdk-member-smoke.rexx` checks a restored member's return code
+on a separately qualified TSO guest. Its arguments are the load library data
+set and member name. The installed host consumer does not run that guest check.

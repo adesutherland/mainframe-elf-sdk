@@ -183,4 +183,5 @@ tests/profiles/support.c
 tests/profiles/target-attribute.c
 tests/profiles/target-pragma.c
 tests/runtime/heap-defaults.c
+tests/tso/sdk-member-smoke.rexx
 tests/tso/text-switch.c

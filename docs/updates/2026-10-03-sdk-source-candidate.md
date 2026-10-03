@@ -57,6 +57,21 @@ The TSO64 installed consumer covered both generic entry modes. That first result
 receipt SHA-256 was
 `fcea10ab67f28b25a01e6dab88f97131af05ff154ac3f716e070667baa2e4050`.
 
+## First guest transport check and correction
+
+After committing z/PDOS `c156bdd` and SDK `b8cf649` on `develop`, I leased
+LABA01 on the shared z/OS 1.5 guest. The first installed TSO64 XMIT was
+transferred and read back byte-identically, but `RECEIVE` restored `/PRIVATE`:
+Classic Linker derives the member name from the first eight characters of its
+`-o` argument, which had been an absolute `/private/...` path. IEBCOPY
+reported severity 0, but that name is unsuitable for a normal SDK member.
+The SDK recipes now link from their output directory with explicit names
+`SDKTS24`, `SDKTS31`, `SDKTS64L` and `SDKTS64A`. A host XMIT directory check
+requires the intended name and AMODE/RMODE. The corrected TSO64 ANY XMIT SHA-256
+was `35c3f85ce8dfab4ee113efad84025f34bae8ebf785d8848dd221c584baaa142f`;
+its guest transfer read back identically, and `RECEIVE` restored `SDKTS64A`
+with IEBCOPY severity 0. Execution remains a separate check.
+
 ## Release limits
 
 These host checks do not prove the selected z/OS 1.5 macro offsets, SVC

@@ -26,3 +26,12 @@
 - Observation: The simple source-built CMS consumers link and export, but `tests/cms-newlib/plain-core.c` exposed orphan `.rela.rodata.*` sections under the strict linker script and unresolved `fabs`, `floor` and `scalbn` from the first library grouping.
 - Evidence: The first 3 October 2026 `build/cms-source-plain-core-link.log` failed. With 131 selected CMS core members and an explicit `.rela.rodata.*` rule, `build/cms-source-plain-core-v3.log` shows compile, checked link, MODULE write and independent MODULE verify for CMS24 and CMS31. GNU ld 2.47 documents explicit input-section wildcards and rejects unmatched sections with `--orphan-handling=error`.
 - Acceptance: Put the selected CMS support members in their intended archive, retain the strict orphan check with explicit relocation sections, and link/export the full plain-C consumer from both source-built sysroots. Guest behavior remains a separate gate.
+
+## SDK-004: Native XMIT member identity
+
+- Type: defect
+- Status: Done
+- Target: Source-built TSO24, TSO31 and both TSO64 transports
+- Observation: Classic Linker derives the IEBCOPY member from the first eight characters of its `-o` argument. Passing an absolute output path made z/OS restore a member named `/PRIVATE`.
+- Evidence: The first z/OS 1.5 `RECEIVE` on 3 October 2026 loaded `/PRIVATE` with IEBCOPY severity 0. The source pipeline and installed consumer now link from their output directory with eight-character names, and the XMIT unload checker validates member and AMODE/RMODE before installation. The corrected `SDKTS64A` transport restored with IEBCOPY severity 0.
+- Acceptance: All four transports expose stable, valid member names and fail the host check if the IEBCOPY directory disagrees.

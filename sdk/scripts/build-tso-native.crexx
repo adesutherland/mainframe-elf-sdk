@@ -61,14 +61,21 @@ main: procedure = .int
     residence = word("24 31 31 31",i)
     entry_name = word("LABTS24 LABTSO LABTS64 LABTS64",i)
     entry_file = word("tso24-entry.obj tso31-any-entry.obj tso64-low-entry.obj tso64-any-entry.obj",i)
+    member = word("SDKTS24 SDKTS31 SDKTS64L SDKTS64A",i)
     profile = "tso-zos" || bits || "-v1"
     native_entry = entries || "/" || entry_file
     cdeck = cdeck_root || "/" || profile || "/consumer.obj"
-    xmit = out || "/tso" || suffix || ".XMI"
+    xmit_name = member || ".XMI"
+    xmit = out || "/" || xmit_name
     map = out || "/tso" || suffix || ".map"
     address crexx "run test -f :cdeck"
     if rc <> 0 then return 2
-    address crexx "run cmake -E env SOURCE_DATE_EPOCH=0 :ld_tool --oformat xmit --amode :mode --rmode :residence -e :entry_name -Map :map -o :xmit :native_entry :service_obj :cdeck"
+    address crexx "run cmake -E env SOURCE_DATE_EPOCH=0 cmake -E chdir :out :ld_tool --oformat xmit --amode :mode --rmode :residence -e :entry_name -Map :map -o :xmit_name :native_entry :service_obj :cdeck"
+    if rc <> 0 then return rc
+    unload = out || "/" || member || ".unload"
+    expected_rmode = "ANY"
+    if residence = "24" then expected_rmode = "24"
+    address crexx "run python3 sdk/scripts/pdos64_xmit_unload.py :xmit :unload --member :member --amode :mode --rmode :expected_rmode"
     if rc <> 0 then return rc
     address crexx "run shasum -a 256 :xmit :map"
     if rc <> 0 then return rc

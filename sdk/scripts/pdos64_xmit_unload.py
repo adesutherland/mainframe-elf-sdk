@@ -103,7 +103,7 @@ def main():
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--member", required=True)
-    parser.add_argument("--amode", type=int, choices=(31, 64), required=True)
+    parser.add_argument("--amode", type=int, choices=(24, 31, 64), required=True)
     parser.add_argument("--rmode", choices=("24", "ANY", "64"), default="ANY")
     args = parser.parse_args()
     if args.output.exists():

@@ -11,6 +11,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from pdos64_xmit_unload import extract as check_xmit_member
+
 PROFILES = ("vm370-4381-v1", "cms20-esa31-v1", "tso-zos24-v1",
             "tso-zos31-v1", "tso-zos64-v1", "vmkernel")
 
@@ -157,22 +159,28 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path) -> dict:
         classic = sdk / "host/classic/bin/mf-classic-ld"
         service = native / "mvssupa.obj"
         if bits == "24":
-            routes = (("default", "tso24-entry.obj", "LABTS24", "24", "24"),)
+            routes = (("default", "tso24-entry.obj", "LABTS24", "24", "24", "SDKTS24"),)
         elif bits == "31":
-            routes = (("default", "tso31-any-entry.obj", "LABTSO", "31", "31"),)
+            routes = (("default", "tso31-any-entry.obj", "LABTSO", "31", "31", "SDKTS31"),)
         else:
-            routes = (("default", "tso64-any-entry.obj", "LABTS64", "64", "31"),
-                      ("low-entry", "tso64-low-entry.obj", "LABTS64", "31", "31"))
+            routes = (("default", "tso64-any-entry.obj", "LABTS64", "64", "31", "SDKTS64A"),
+                      ("low-entry", "tso64-low-entry.obj", "LABTS64", "31", "31", "SDKTS64L"))
         native_results = {}
-        for route, entry, symbol, amode, rmode in routes:
-            xmit = out / f"consumer-{route}.XMI"
+        for route, entry, symbol, amode, rmode, member in routes:
+            xmit = out / f"{member}.XMI"
             map_file = out / f"consumer-{route}.map"
             run(classic, "--oformat", "xmit", "--amode", amode,
                 "--rmode", rmode, "-e", symbol, "-Map", map_file,
-                "-o", xmit, native / entry, service, deck,
-                env={"SOURCE_DATE_EPOCH": "0"})
+                "-o", xmit.name, native / entry, service, deck,
+                cwd=out, env={"SOURCE_DATE_EPOCH": "0"})
+            _, member_check = check_xmit_member(
+                xmit.read_bytes(), member, int(amode),
+                "24" if rmode == "24" else "ANY")
             native_results[route] = {"xmit_sha256": sha(xmit),
-                                     "map_sha256": sha(map_file)}
+                                     "map_sha256": sha(map_file),
+                                     "member": member_check["member"],
+                                     "amode": member_check["native_directory_amode"],
+                                     "rmode": member_check["native_directory_rmode"]}
         result["source_native_links"] = native_results
     if bits == "64" and (sdk / "native/high-launchers").is_dir():
         high_entry = out / "high-entry.o"

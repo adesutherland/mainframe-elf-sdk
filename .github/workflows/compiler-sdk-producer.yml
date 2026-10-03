@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - host: macos-15-arm64
+          - host: macos-15
             cc: gcc-16
             cxx: g++-16
           - host: ubuntu-24.04-arm
@@ -188,3 +188,11 @@ jobs:
             --sdk "$RUNNER_TEMP/unpacked/sdk-candidate" \
             --out "$RUNNER_TEMP/installed-consumer"
           sha256sum "$RUNNER_TEMP/sdk-candidate.tar.gz"
+      - name: Retain the reviewed Linux candidate for release preparation
+        uses: actions/upload-artifact@v4
+        with:
+          name: mainframe-elf-sdk-0.1.0-linux-x64-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/sdk-candidate.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

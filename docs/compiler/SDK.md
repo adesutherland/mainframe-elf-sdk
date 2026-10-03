@@ -10,7 +10,7 @@ TSO and declared CP/CMS kernel components. cREXX is an external application
 consumer. The legacy GCCCMS/GCCMVS tools and their repair
 history remain in the laboratory for other work. This extraction is separate
 from a clean z/PDOS64 kernel project; it does not include a dedicated PDOS
-application target, runtime, image or guest. Shared PDLD/XMIT tools remain
+application target, runtime, image or guest. Shared Classic Linker/XMIT tools remain
 relevant because PDOS tests unchanged TSO binaries.
 
 ## Included profiles
@@ -41,7 +41,7 @@ qualification. This public source tree contains no cREXX application source.
 only that allowlist and writes `SOURCE-MANIFEST.json` with SHA-256 for every
 file. It excludes private correspondence, manuals, IBM images, credentials,
 book drafts, unrelated experiments and downloaded vendor trees. The extracted
-tree carries editable GCC target source, frozen historical recovery material,
+tree carries editable GCC target source,
 profile definitions, checked runtime adapters, package tools and relevant
 source guides. The producer reads the maintained source directly from
 `compiler/src/gcc16/` and does not read the frozen recovery material.
@@ -84,9 +84,24 @@ source-build report. Classic Assembler now builds checked TSO24, TSO31 and
 both TSO64 entry objects from maintained source. The selected PDPCLIB TSO
 file service now assembles from z/PDOS source and four complete native XMIT
 links pass. A source-input installed candidate passes all six profiles on
-macOS. Linux, clean-checkout and affected guest gates remain open.
+macOS. On z/OS 1.5, its TSO31 and both TSO64 entries passed sequential
+write/read and PDS read, while TSO24 passed the simple return path. TSO24
+dataset I/O remains outside the 0.1.0 file subset. Linux installed-package,
+clean-checkout and other service-path guest gates remain open.
 
-The older bootstrap package assembler accepts the separately qualified CMS24, CMS31
+The current source route uses checked upstream archives and maintained SDK
+and z/PDOS source. `compiler_sdk_consume.py --producer-c-decks` first builds
+the three TSO C decks from source-built sysroots. `build-tso-native.crexx`
+then assembles the entry and PDPCLIB service objects with source-built
+Classic Assembler and links four XMIT transports with Classic Linker.
+`compiler_sdk_source_package.py` installs those objects, host tools, five
+source-built sysroots and component notices. The installed consumer checks
+all six profiles after unpacking the tarball. The Linux workflow pins the
+z/PDOS `930dbbc` source revision for this complete route.
+
+### Retained bootstrap package
+
+The older bootstrap packager accepts the separately qualified CMS24, CMS31
 and three-profile MVS/TSO newlib archives as **checked bootstrap inputs**.
 Their exact archive hashes are pinned in `sdk/scripts/compiler_sdk_package.py`. It
 copies each profile's generated headers, static archives, startup and native
@@ -129,7 +144,8 @@ patches, and `pdptop.mac` are their source trail. The SDK's
 extends the 0001-patched PDPCLIB source for z/OS 1.5 TSO24; the
 [`PDPCLIB patch guide`](../../sdk/archive/pdpclib/README.md) pins the input and
 output hashes. The packaged baseline `T24SUP` is not that patched object;
-reassemble the patched source for z/OS 1.5 TSO24 dataset I/O. PDPCLIB's source notice
+reassemble the patched source for historical z/OS 1.5 TSO24 experiments;
+the current 0.1.0 file subset excludes TSO24 dataset I/O. PDPCLIB's source notice
 credits Paul Edwards and contributors and states its own public-domain claim;
 that notice does not apply to all SDK material. The IBM macro library and
 ASMA90 are native/private prerequisites of the retained bootstrap route.
@@ -152,10 +168,11 @@ for the accepted RMODE ANY default.
 GCC is covered by its GPLv3 and runtime exception, binutils and newlib by
 their original notices. The package retains those terms rather than applying
 one blanket licence. No proprietary commercial licence is introduced as an
-SDK policy. The native regeneration gap prevents describing the whole SDK as
-freshly built solely from open-source inputs.
+SDK policy. Those private bootstrap decks remain specific to the retained
+bootstrap package; the current source-input candidate uses maintained
+z/PDOS native source instead.
 
-The package command takes four explicit, checked bootstrap archives and the
+The retained bootstrap package command takes four explicit, checked bootstrap archives and the
 separately accepted RMODE ANY native objects. It
 requires a completed `tools.json` from `build-tools`:
 
@@ -168,15 +185,15 @@ python3 sdk/scripts/compiler_sdk_package.py --work /tmp/sdk-work \
   --native-service-any /path/to/PDPL34.obj \
   --native-entry64-any /path/to/E64.obj \
   --native-high-launchers /path/to/checked-high-launcher-directory \
-  --out /tmp/mainframe-compiler-sdk-0.1.0-local
+  --out /tmp/mainframe-compiler-sdk-bootstrap-local
 ```
 
 After unpacking the resulting `.tar.gz` at another location, run the
 consumer matrix from the installed package:
 
 ```sh
-python3 /new/location/mainframe-compiler-sdk-0.1.0-local/tools/compiler_sdk_consume.py \
-  --sdk /new/location/mainframe-compiler-sdk-0.1.0-local \
+python3 /new/location/mainframe-compiler-sdk-bootstrap-local/tools/compiler_sdk_consume.py \
+  --sdk /new/location/mainframe-compiler-sdk-bootstrap-local \
   --out /new/location/sdk-consumer
 ```
 
@@ -201,9 +218,10 @@ RXAS, RXVM and RXC TSO64 native decks. That source and its application glue
 are not part of this public compiler SDK. The retained host result does not
 create XMITs or establish fresh guest execution.
 
-`.github/workflows/compiler-sdk-producer.yml` defines candidate macOS arm64
-and Linux arm64 fresh-source tool builds. A YAML definition is not a hosted
-result. The laboratory's dated SDK report records the actually executed
+`.github/workflows/compiler-sdk-producer.yml` defines hosted macOS 15 and Linux
+arm64 fresh-source tool builds, plus a Linux x64 source-built installed SDK
+candidate job. A YAML definition is not a hosted result. The dated source
+candidate report records the actually executed
 producer/consumer matrix and artifact identities; it is not a runtime
 dependency of the standalone source tree.
 

@@ -118,6 +118,15 @@ contract, but their rejection paths, dynamic allocation, command and prefix
 services still need separate guest checks. The file result is specific to the
 tested z/OS 1.5 guest and the named entry and service objects.
 
+The first complete Linux x64 workflow at SDK `126bfb7` built the cross tools
+and five runtime sysroots, then stopped before C-deck packaging. The host
+cREXX driver had left generated `*.crexx-driver.lock` files beside source
+scripts; the strict source inventory treated them as new maintained files.
+The inventory now excludes only that transient lock suffix while still
+rejecting other unlisted files. A fresh local source extraction with a lock
+present passed source package creation, and an unrelated extra file was
+correctly rejected. The Linux installed package still needs a passing rerun.
+
 ## Release limits
 
 The guest calls do not prove all selected z/OS 1.5 macro offsets, SVC linkage,

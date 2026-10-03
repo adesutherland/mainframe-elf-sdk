@@ -274,6 +274,8 @@ def main() -> None:
         p.add_argument(f"--tso{bits}", type=Path)
     a = p.parse_args()
     if a.producer_c_decks:
+        if not Path(__file__).with_name("compiler_sdk.py").is_file():
+            p.error("--producer-c-decks requires the checked SDK source tree")
         if not a.work or any(getattr(a, f"tso{bits}") is None for bits in ("24", "31", "64")):
             p.error("--producer-c-decks needs --work and --tso24/31/64")
         producer_c_decks(a.work.resolve(strict=True),

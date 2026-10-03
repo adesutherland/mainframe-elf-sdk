@@ -66,6 +66,8 @@ def actual_source_files() -> set[str]:
         children[:] = [child for child in children
                        if child not in excluded]
         for filename in filenames:
+            if filename.endswith(".crexx-driver.lock"):
+                continue
             path = Path(directory) / filename
             names.add(str(path.relative_to(ROOT)))
     return names
@@ -256,10 +258,12 @@ def build_tools(work: Path, cc: str, cxx: str, jobs: int) -> None:
                  "--disable-multilib", "--disable-shared", "--disable-threads", "--without-headers",
                  f"--prefix={gcc_prefix}"]
     if platform.system() == "Darwin":
-        for name, prefix in (("gmp", "/opt/homebrew/opt/gmp"), ("mpfr", "/opt/homebrew/opt/mpfr"),
-                             ("mpc", "/opt/homebrew/opt/libmpc"), ("isl", "/opt/homebrew/opt/isl")):
-            if not Path(prefix).is_dir():
-                raise ValueError(f"missing host prerequisite: {prefix}")
+        for name, formula in (("gmp", "gmp"), ("mpfr", "mpfr"),
+                              ("mpc", "libmpc"), ("isl", "isl")):
+            prefix = subprocess.run(["brew", "--prefix", formula], check=True,
+                                    capture_output=True, text=True).stdout.strip()
+            if not prefix or not Path(prefix).is_dir():
+                raise ValueError(f"missing host prerequisite: {formula}")
             configure.append(f"--with-{name}={prefix}")
     call(configure, gcc_obj, "gcc-configure.log")
     call(["make", f"-j{jobs}", "all-gcc"], gcc_obj, "gcc-build.log")

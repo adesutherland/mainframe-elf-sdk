@@ -55,7 +55,10 @@ The existing package recipe remains a bootstrap route: it consumes pinned
 runtime archives and ASMA90-produced native decks. z/PDOS Classic Assembler
 now builds checked TSO24 and TSO31 entry objects from maintained SDK source,
 using selected public service register interfaces; these entries have not
-passed a guest run. The PDPCLIB service object and TSO64 entry still need a
-source-built route. A source-only installed package, Linux host evidence and
+passed a guest run. The complete maintained PDOS-profile PDPCLIB native
+source also assembles with source-owned PDOS service definitions. The MVS/TSO
+service object and TSO64 entry still need source-built routes; the
+[3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) records
+their exact stops. A source-only installed package, Linux host evidence and
 affected guest checks are open 0.1.0 gates. Windows remains the separately
 staged 0.1.1 host gate.

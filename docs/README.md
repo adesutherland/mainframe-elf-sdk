@@ -6,6 +6,9 @@
   by Windows 0.1.1.
 - [Latest source-build checkpoint](updates/2026-10-03-source-build.md): exact
   Mac host results and remaining native, installed-package and guest work.
+- [Native PDPCLIB and TSO64 review](updates/2026-10-03-funhead-pdpclib-tso64.md):
+  source-built PDOS service assembly, the TSO macro boundary and the distinct
+  TSO64 entry requirements.
 
 Each component has its own README, UPSTREAM.md, AGENTS.md and single
 `doc/BACKLOG.md`. Enduring guides explain current design, the release plan

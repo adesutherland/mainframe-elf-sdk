@@ -70,3 +70,121 @@ jobs:
             -o "$RUNNER_TEMP/sdk-ci-probe.o"
           "$RUNNER_TEMP/s370_check" input vm370-4381-v1 \
             "$RUNNER_TEMP/sdk-ci-probe.o"
+
+  linux-installed-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: sdk-repo
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: adesutherland/z-pdos
+          ref: 930dbbc13119ab69d6b4ddc4f42e4d6edcf6fd59
+          path: z-pdos
+          persist-credentials: false
+      - name: Install Linux source-build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libgmp-dev libmpfr-dev \
+            libmpc-dev libisl-dev python3 patch xz-utils make curl unzip
+      - name: Bootstrap pinned host cREXX
+        working-directory: z-pdos
+        run: |
+          set -euo pipefail
+          read -r asset expected < <(awk '$1 == "linux-x64" {print $2, $3}' .github/crexx-bootstrap.txt)
+          test -n "$asset" && test -n "$expected"
+          mkdir -p "$RUNNER_TEMP/crexx-runtime"
+          curl --fail --location --retry 3 \
+            "https://github.com/adesutherland/CREXX/releases/download/v1.0.0-beta.3/$asset" \
+            -o "$RUNNER_TEMP/crexx-runtime.zip"
+          printf '%s  %s\n' "$expected" "$RUNNER_TEMP/crexx-runtime.zip" | sha256sum -c -
+          cmake -E chdir "$RUNNER_TEMP/crexx-runtime" cmake -E tar xf ../crexx-runtime.zip
+          entry=$(find "$RUNNER_TEMP/crexx-runtime" -type f -path '*/bin/crexx')
+          test -n "$entry" && test "$(printf '%s\n' "$entry" | wc -l | tr -d ' ')" = 1
+          chmod +x "$(dirname "$entry")"/*
+          dirname "$entry" >> "$GITHUB_PATH"
+          echo "CREXX_HOME=$(dirname "$(dirname "$entry")")" >> "$GITHUB_ENV"
+      - name: Build and check Classic tools
+        working-directory: z-pdos
+        run: crexx -nokeep scripts/build.crexx --args test
+      - name: Extract and build cross compiler from checked source
+        working-directory: sdk-repo
+        run: |
+          set -euo pipefail
+          python3 sdk/scripts/compiler_sdk.py extract --out "$RUNNER_TEMP/sdk-source"
+          cd "$RUNNER_TEMP/sdk-source"
+          python3 sdk/scripts/compiler_sdk.py prepare --cache "$RUNNER_TEMP/archives" \
+            --work "$RUNNER_TEMP/sdk-work" --download
+          python3 sdk/scripts/compiler_sdk.py build-tools --work "$RUNNER_TEMP/sdk-work" \
+            --cc gcc --cxx g++ --jobs 6
+      - name: Build five runtime sysroots from source
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sdk-source"
+          for profile in vm370-4381-v1 cms20-esa31-v1 tso-zos24-v1 tso-zos31-v1 tso-zos64-v1; do
+            output="$RUNNER_TEMP/runtime/$profile"
+            mkdir -p "$output"
+            if [ "$profile" = tso-zos64-v1 ]; then
+              crexx -nokeep libc/scripts/build-newlib64.crexx --args \
+                "$RUNNER_TEMP/sdk-work" "$output/core"
+            else
+              crexx -nokeep libc/scripts/build-newlib.crexx --args \
+                "$RUNNER_TEMP/sdk-work" "$profile" "$output/core"
+            fi
+            crexx -nokeep libc/scripts/build-newlib-extras.crexx --args \
+              "$RUNNER_TEMP/sdk-work" "$profile" "$output/core" "$output/extras"
+            for kind in wide soft; do
+              crexx -nokeep libc/scripts/build-libgcc.crexx --args \
+                "$RUNNER_TEMP/sdk-work" "$profile" "$kind" "$output/$kind"
+            done
+            if [ "$profile" = vm370-4381-v1 ] || [ "$profile" = cms20-esa31-v1 ]; then
+              crexx -nokeep libc/scripts/build-cms-adapters.crexx --args \
+                "$RUNNER_TEMP/sdk-work" "$profile" "$output/core" "$output/adapters"
+              crexx -nokeep libc/scripts/package-cms-sysroot.crexx --args \
+                "$RUNNER_TEMP/sdk-work" "$profile" "$output/core" "$output/extras" \
+                "$output/wide" "$output/soft" "$output/adapters" "$output/sysroot"
+            else
+              crexx -nokeep libc/scripts/package-tso-sysroot.crexx --args \
+                "$RUNNER_TEMP/sdk-work" "$profile" "$output/core" "$output/extras" \
+                "$output/wide" "$output/soft" "$output/sysroot"
+            fi
+          done
+      - name: Build native C decks and PDPCLIB service from source
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sdk-source"
+          python3 sdk/scripts/compiler_sdk_consume.py --producer-c-decks \
+            --work "$RUNNER_TEMP/sdk-work" \
+            --tso24 "$RUNNER_TEMP/runtime/tso-zos24-v1/sysroot" \
+            --tso31 "$RUNNER_TEMP/runtime/tso-zos31-v1/sysroot" \
+            --tso64 "$RUNNER_TEMP/runtime/tso-zos64-v1/sysroot" \
+            --out "$RUNNER_TEMP/producer-c-decks"
+          crexx -nokeep sdk/scripts/build-tso-native.crexx --args \
+            "$GITHUB_WORKSPACE/z-pdos" build/pdpclib-tso31-sdk-files \
+            "$RUNNER_TEMP/producer-c-decks" "$RUNNER_TEMP/native"
+      - name: Package, unpack and consume the complete Linux SDK
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sdk-source"
+          python3 sdk/scripts/compiler_sdk_source_package.py \
+            --work "$RUNNER_TEMP/sdk-work" \
+            --cms24 "$RUNNER_TEMP/runtime/vm370-4381-v1/sysroot" \
+            --cms31 "$RUNNER_TEMP/runtime/cms20-esa31-v1/sysroot" \
+            --tso24 "$RUNNER_TEMP/runtime/tso-zos24-v1/sysroot" \
+            --tso31 "$RUNNER_TEMP/runtime/tso-zos31-v1/sysroot" \
+            --tso64 "$RUNNER_TEMP/runtime/tso-zos64-v1/sysroot" \
+            --native "$RUNNER_TEMP/native" \
+            --classic-as "$GITHUB_WORKSPACE/z-pdos/build/tools/assembler/mf-classic-as" \
+            --classic-ld "$GITHUB_WORKSPACE/z-pdos/build/tools/linker/mf-classic-ld" \
+            --zpdos-root "$GITHUB_WORKSPACE/z-pdos" \
+            --out "$RUNNER_TEMP/sdk-candidate"
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          tar -xzf "$RUNNER_TEMP/sdk-candidate.tar.gz" -C "$RUNNER_TEMP/unpacked"
+          python3 "$RUNNER_TEMP/unpacked/sdk-candidate/tools/compiler_sdk_consume.py" \
+            --sdk "$RUNNER_TEMP/unpacked/sdk-candidate" \
+            --out "$RUNNER_TEMP/installed-consumer"
+          sha256sum "$RUNNER_TEMP/sdk-candidate.tar.gz"

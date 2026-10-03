@@ -1,4 +1,4 @@
-/* Selected TSO sequential/PDS services; allocate SDKTXT and SDKPDS first. */
+/* Selected TSO31/TSO64 file services; allocate SDKTXT and SDKPDS first. */
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>

@@ -197,7 +197,7 @@ def main() -> None:
                "native_source_objects_sha256": native_hashes,
                "host_helpers_sha256": helpers,
                "profiles": profiles, "files_sha256": files,
-               "qualification": "local source-built host candidate; no new guest or Linux host result",
+               "qualification": "source-built host candidate; guest and other-host results are recorded separately",
                "pdos_application_target": "excluded"}
     (out / "SDK-MANIFEST.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     archive = Path(str(out) + ".tar.gz")

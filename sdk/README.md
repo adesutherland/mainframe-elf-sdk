@@ -7,8 +7,9 @@ producer, packager and consumer interfaces. The historical patch inputs under
 Assembler, Linker and PDPCLIB source.
 
 This directory also owns the reviewed source inventory for Mainframe ELF SDK.
-The local macOS source-input candidate now includes rebuilt runtimes and
-native adapters; Linux and guest qualification remain open. The full lab
+The local macOS source-input candidate includes rebuilt runtimes and native
+adapters. Linux package qualification remains open; z/OS 1.5 guest checks
+passed for simple TSO24/31/64 entry calls and the TSO31/64 file subset. The full lab
 retains its legacy compiler and independent OS work. The dedicated PDOS
 application target and runtime are outside this SDK; PDOS may exercise
 unchanged TSO binaries through its supported services.
@@ -60,12 +61,18 @@ has only freestanding component output. TSO64 has a qualified RMODE ANY route
 and a separately reviewed low-launcher/RMODE64 package route; execution on
 modern z/OS remains unverified.
 
-With source-built TSO C decks already present, build the native objects and
-host XMIT transports using the z/PDOS `develop` checkout:
+After building the three TSO C sysroots, generate checked C decks from the
+fresh cross tools. Then build the native objects and host XMIT transports
+using the pinned z/PDOS `develop` revision:
 
 ```sh
+python3 sdk/scripts/compiler_sdk_consume.py --producer-c-decks \
+  --work /path/to/sdk-work \
+  --tso24 /path/to/tso24-sysroot --tso31 /path/to/tso31-sysroot \
+  --tso64 /path/to/tso64-sysroot --out /path/to/new-C-decks
 crexx -nokeep sdk/scripts/build-tso-native.crexx --args \
-  /path/to/z-pdos build/new-pdpclib-service /path/to/C-decks build/new-tso-native
+  /path/to/z-pdos build/new-pdpclib-service /path/to/new-C-decks \
+  build/new-tso-native
 ```
 
 `build/new-pdpclib-service` is created under the z/PDOS checkout; the final
@@ -83,8 +90,10 @@ GCC is GPLv3 with its retained runtime exception; binutils and newlib carry
 their own upstream licences and file notices. PDPCLIB native service source
 retains its own notice. The older bootstrap package retains ASMA90-produced
 decks; the new source-input candidate uses maintained z/PDOS assembler,
-linker and PDPCLIB source instead. Its local macOS installed consumer passes,
-while Linux and guest qualification remain open. See the
+linker and PDPCLIB source instead. Its local macOS installed consumer passes.
+The TSO31/64 file subset covers sequential write/read and PDS read. TSO24
+currently covers the simple entry/return path, with dataset I/O excluded.
+Linux package qualification remains open. See the
 [SDK guide](../docs/compiler/SDK.md) and
 [source candidate checkpoint](../docs/updates/2026-10-03-sdk-source-candidate.md)
 for the exact matrix and remaining gates.

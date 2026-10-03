@@ -57,15 +57,20 @@ candidate route now installs all five source-built C sysroots, source-built
 host and Classic tools, and source-built TSO native entry and PDPCLIB service
 objects. Its installed consumer passed CMS24/31 MODULEs, TSO24/31/64 C decks,
 four complete native XMIT links, and the freestanding component on macOS.
-The TSO service profile supports sequential and partitioned datasets and
-explicitly rejects VSAM, IDCAMS and supervisor-mode switching. All four
-source-built TSO transports restored and returned 42 for a simple C consumer
-on z/OS 1.5; file operations remain to be exercised. The complete maintained
+The TSO31/64 service file subset supports sequential write/read and PDS read;
+VSAM, IDCAMS and supervisor-mode switching are rejected by the selected
+service. All four source-built TSO transports restored and returned 42 for a
+simple C consumer on z/OS 1.5. TSO31 and both TSO64 entry modes passed the
+file smoke there. TSO24 dataset I/O faults during above-line SWA lookup and is
+outside the 0.1.0 file subset; its simple entry/return path passed. The
+selected file service bypasses inherited NOTE/TRKCALC positioning, so FBS
+extend is outside this subset. The complete maintained
 PDOS-profile PDPCLIB native source also assembles with source-owned PDOS service definitions.
 The
 [3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) and
 [TSO64 source entry checkpoint](updates/2026-10-03-tso64-source-entry.md)
 record the earlier sequence; the [source candidate checkpoint](updates/2026-10-03-sdk-source-candidate.md)
-records the new host result. A clean-checkout release build, Linux host
-qualification and affected guest checks are open 0.1.0 gates. Windows remains
+records the new host result and guest evidence. A clean-checkout release build,
+Linux installed-package qualification and remaining service-path guest checks
+are open 0.1.0 gates. Windows remains
 the separately staged 0.1.1 host gate.

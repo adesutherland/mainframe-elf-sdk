@@ -5,8 +5,8 @@
 - Type: qualification
 - Status: In progress
 - Target: macOS and Linux 0.1.0 installed SDK and its six advertised profiles
-- Observation: The old package recipe still accepts pinned runtime archives and ASMA90-produced native decks. A separate source-input candidate now packages rebuilt sysroots, Classic tools and native objects and passes an independent installed macOS consumer. A clean-checkout build, Linux host and affected guest checks remain open.
-- Evidence: `scripts/compiler_sdk_package.py` names the old bootstrap inputs. `scripts/compiler_sdk_source_package.py`, `scripts/build-tso-native.crexx` and the [3 October source candidate checkpoint](../../docs/updates/2026-10-03-sdk-source-candidate.md) record the new local package, manifest and six-profile installed consumer result.
+- Observation: The old package recipe still accepts pinned runtime archives and ASMA90-produced native decks. A separate source-input candidate packages rebuilt sysroots, Classic tools and native objects and passes an independent installed macOS consumer. Simple TSO24/31/64 guest entry and TSO31/64 sequential/PDS file checks passed on z/OS 1.5. TSO24 dataset I/O faults in SWA lookup and is outside the 0.1.0 file subset. A clean-checkout build, Linux installed package and remaining service-path checks remain open.
+- Evidence: `scripts/compiler_sdk_package.py` names the old bootstrap inputs. `scripts/compiler_sdk_source_package.py`, the producer C-deck mode of `scripts/compiler_sdk_consume.py`, `scripts/build-tso-native.crexx` and the [3 October source candidate checkpoint](../../docs/updates/2026-10-03-sdk-source-candidate.md) record the local package, manifest and six-profile installed consumer and guest results. The Linux installed-candidate workflow is the outstanding host gate.
 - Acceptance: Install all profile sysroots, host helpers and native objects from checked maintained source without bootstrap archives or private assembler inputs; run an independent installed consumer, inspect identities and notices, qualify Linux, then prepare reviewable 0.1.0 assets.
 
 ## SDK-002: Native Windows host release

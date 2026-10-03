@@ -83,12 +83,47 @@ and `35c3f85ce8dfab4ee113efad84025f34bae8ebf785d8848dd221c584baaa142f`.
 These calls check entry, load and simple C return; file paths and larger
 applications still need separate guest exercises.
 
+## Final source-built file service and guest result
+
+The selected SAM/BPAM DCB macro initially omitted unopened access-method
+placeholders and DCBOFLGS initialization. The corrected z/PDOS source supplies
+the 88-byte template expected by OPEN. After OPEN, inherited NOTE/TRKCALC
+positioning abended in the selected file profile; that branch is now bypassed
+for `tso31-sdk-files`. This bounds the 0.1.0 file subset to sequential
+write/read and PDS read without FBS extend or positioning. The final service
+object SHA-256 is
+`58efd091aa78765cc4b0f9b00002c96c181bb4be353022c40b0e69b1d783e5c3`.
+The z/PDOS host suite passed 93/93 with these source bytes, committed as
+`930dbbc13119ab69d6b4ddc4f42e4d6edcf6fd59` on `develop`.
+
+The macOS source-built candidate archive SHA-256 is
+`cbfe66ce728f9543e31b729578d5af07524ffa8ff2171442a0325e3b0898e3af`.
+Its independent installed consumer passed all six advertised host profiles.
+Using that installed package, `SDKF31`, `SDKF64A` and `SDKF64L` were compiled,
+linked and restored on the leased z/OS 1.5 LABA01 account. Each printed
+`SDK SEQUENTIAL PASS`, `SDK PDS PASS`, `SDK MISSING DD PASS` and returned RC 42.
+The input XMIT SHA-256 values were, respectively,
+`f82f47c5cc339a65cb1ade6bd108bf8a11ff51b5580155b86fbcd7b6dcc8f43d`,
+`496a27c2e66f5ce52583145e27eed936f13877af208b37b732dd0546df251234`
+and `ec2c291d3feabd0a1c38ff50cb35a7efd4c782ec647ecc1b062451494c6e6579`.
+The same candidate's `SDKTS24` XMIT
+(`5f2444fe9bc9e9515c35d22e262aab526beb56a0e860b6a861a617549bd8bb6a`)
+restored and returned RC 42. Private guest transfer, RECEIVE and execution
+receipts are under `/Users/adrian/MainframeLab/private/sdk-elf-20261003/`.
+
+The TSO24 file smoke faulted during above-line SWA lookup and is outside the
+0.1.0 file subset. Basic TSO24 entry and return passed with the final service.
+The selected service rejects VSAM/IDCAMS and supervisor switching by source
+contract, but their rejection paths, dynamic allocation, command and prefix
+services still need separate guest checks. The file result is specific to the
+tested z/OS 1.5 guest and the named entry and service objects.
+
 ## Release limits
 
-The four simple guest calls do not prove all selected z/OS 1.5 macro offsets,
-SVC linkage, dataset behavior or the full IARV64 surface. The `TCBFA` test
+The guest calls do not prove all selected z/OS 1.5 macro offsets, SVC linkage,
+dataset behavior or the full IARV64 surface. The `TCBFA` test
 in inherited PDPCLIB is not a designated IBM programming interface. No
-Linux host package, clean-checkout build or guest file operation has passed
-for these changed native bytes. The source-only candidate is therefore
+Linux installed package or clean-checkout build has passed for these changed
+native bytes. The source-only candidate is therefore
 reviewable but not a qualified 0.1.0 release. Windows remains the planned
 0.1.1 host stage.

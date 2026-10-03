@@ -42,6 +42,53 @@ def verify(sdk: Path) -> dict:
     return receipt
 
 
+def producer_c_decks(work: Path, sysroots: dict[str, Path], out: Path) -> None:
+    """Build the three checked TSO C decks before native service packaging."""
+    from compiler_sdk import ROOT, verify_source
+    from compiler_sdk_package import build_host_helpers
+
+    verify_source()
+    if out.exists():
+        raise ValueError(f"refusing existing C deck output: {out}")
+    out.mkdir(parents=True)
+    stage = out / "stage"
+    (stage / "host/bin").mkdir(parents=True)
+    (stage / "host/gcc").symlink_to(work / "install/gcc", target_is_directory=True)
+    (stage / "host/binutils").symlink_to(work / "install/binutils", target_is_directory=True)
+    build_host_helpers(stage, "cc")
+    (stage / "sysroots").mkdir()
+    profiles = {"24": "tso-zos24-v1", "31": "tso-zos31-v1",
+                "64": "tso-zos64-v1"}
+    for bits, profile in profiles.items():
+        source = sysroots[bits].resolve(strict=True)
+        if json.loads((source / "profile.json").read_text())["name"] != profile:
+            raise ValueError(f"wrong source-built sysroot: {source}")
+        (stage / "sysroots" / profile).symlink_to(source, target_is_directory=True)
+    (stage / "adapters").mkdir()
+    for name in ("tso", "tso64", "cms"):
+        source = ROOT / "libc/src/adapters" / name
+        shutil.copytree(source, stage / "adapters" / name)
+    shutil.copy2(ROOT / "libc/src/adapters/mainframe_text.h",
+                 stage / "adapters/mainframe_text.h")
+    shutil.copy2(stage / "adapters/tso/sdk-application.c",
+                 stage / "adapters/tso/application.c")
+    (stage / "contracts/tso").mkdir(parents=True)
+    for source, installed in (("tso-image.ld", "image.ld"),
+                              ("tso64-image.ld", "image64.ld")):
+        shutil.copy2(ROOT / "sdk/src/layouts" / source,
+                     stage / "contracts/tso" / installed)
+    results = {}
+    for profile in profiles.values():
+        target = out / profile
+        target.mkdir()
+        source = target / "consumer.c"
+        source.write_text("int main(void) { return 42; }\n")
+        results[profile] = link_tso(stage, profile, source, target)
+    (out / "producer-decks.json").write_text(
+        json.dumps(results, indent=2, sort_keys=True) + "\n")
+    print(f"Source-built TSO C decks PASS: {out}")
+
+
 def compile_one(sdk: Path, profile: str, source: Path, output: Path,
                 *, extra: tuple[str, ...] = ()) -> Path:
     cc = sdk / "host/gcc/bin/s390-linux-gnu-gcc"
@@ -213,18 +260,36 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path,
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--sdk", type=Path, required=True)
+    p.add_argument("--sdk", type=Path)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--profile", choices=(*PROFILES, "all"), default="all")
     p.add_argument("--tso-source", type=Path,
                    help="compile a supplied C consumer for one TSO profile")
     p.add_argument("--member-prefix", default="SDKTS",
                    help="one to five uppercase letters/digits for native member names")
+    p.add_argument("--producer-c-decks", action="store_true",
+                   help="build pre-package TSO C decks from source-built tools and sysroots")
+    p.add_argument("--work", type=Path)
+    for bits in ("24", "31", "64"):
+        p.add_argument(f"--tso{bits}", type=Path)
     a = p.parse_args()
+    if a.producer_c_decks:
+        if not a.work or any(getattr(a, f"tso{bits}") is None for bits in ("24", "31", "64")):
+            p.error("--producer-c-decks needs --work and --tso24/31/64")
+        producer_c_decks(a.work.resolve(strict=True),
+                         {bits: getattr(a, f"tso{bits}") for bits in ("24", "31", "64")},
+                         a.out.resolve())
+        return
+    if a.sdk is None:
+        p.error("--sdk is required for an installed consumer")
     if not re.fullmatch(r"[A-Z][A-Z0-9]{0,4}", a.member_prefix):
         p.error("member prefix must be one to five uppercase letters/digits")
     if a.tso_source and not a.profile.startswith("tso-"):
         p.error("--tso-source requires one TSO profile")
+    if (a.profile == "tso-zos24-v1" and a.tso_source and
+            a.tso_source.name == "sdk-file-smoke.c"):
+        p.error("the SDK file smoke requires TSO31 or TSO64; "
+                "TSO24 dataset I/O is not in the 0.1.0 file profile")
     sdk = a.sdk.resolve(strict=True)
     out = a.out.resolve()
     if out.exists():

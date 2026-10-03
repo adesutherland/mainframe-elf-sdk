@@ -8,6 +8,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
 import sys
 
@@ -101,7 +103,8 @@ def link_cms(sdk: Path, profile: str, object_file: Path, out: Path) -> dict:
             "module_sha256": sha(module)}
 
 
-def link_tso(sdk: Path, profile: str, source: Path, out: Path) -> dict:
+def link_tso(sdk: Path, profile: str, source: Path, out: Path,
+             member_prefix: str = "SDKTS") -> dict:
     bits = profile.removeprefix("tso-zos").removesuffix("-v1")
     include = sdk / "sysroots" / profile / "include"
     if bits == "64":
@@ -151,7 +154,7 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path) -> dict:
         run(checker, "image", profile, elf)
     deck = out / "consumer.obj"
     run(writer, elf, deck)
-    result = {"object_sha256": sha(objects[1]), "elf_sha256": sha(elf),
+    result = {"source_sha256": sha(source), "object_sha256": sha(objects[1]), "elf_sha256": sha(elf),
             "runtime_libraries_sha256": {path.name: sha(path) for path in libraries},
             "native_deck_sha256": sha(deck)}
     native = sdk / "native/source"
@@ -159,12 +162,12 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path) -> dict:
         classic = sdk / "host/classic/bin/mf-classic-ld"
         service = native / "mvssupa.obj"
         if bits == "24":
-            routes = (("default", "tso24-entry.obj", "LABTS24", "24", "24", "SDKTS24"),)
+            routes = (("default", "tso24-entry.obj", "LABTS24", "24", "24", member_prefix + "24"),)
         elif bits == "31":
-            routes = (("default", "tso31-any-entry.obj", "LABTSO", "31", "31", "SDKTS31"),)
+            routes = (("default", "tso31-any-entry.obj", "LABTSO", "31", "31", member_prefix + "31"),)
         else:
-            routes = (("default", "tso64-any-entry.obj", "LABTS64", "64", "31", "SDKTS64A"),
-                      ("low-entry", "tso64-low-entry.obj", "LABTS64", "31", "31", "SDKTS64L"))
+            routes = (("default", "tso64-any-entry.obj", "LABTS64", "64", "31", member_prefix + "64A"),
+                      ("low-entry", "tso64-low-entry.obj", "LABTS64", "31", "31", member_prefix + "64L"))
         native_results = {}
         for route, entry, symbol, amode, rmode, member in routes:
             xmit = out / f"{member}.XMI"
@@ -213,7 +216,15 @@ def main() -> None:
     p.add_argument("--sdk", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--profile", choices=(*PROFILES, "all"), default="all")
+    p.add_argument("--tso-source", type=Path,
+                   help="compile a supplied C consumer for one TSO profile")
+    p.add_argument("--member-prefix", default="SDKTS",
+                   help="one to five uppercase letters/digits for native member names")
     a = p.parse_args()
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{0,4}", a.member_prefix):
+        p.error("member prefix must be one to five uppercase letters/digits")
+    if a.tso_source and not a.profile.startswith("tso-"):
+        p.error("--tso-source requires one TSO profile")
     sdk = a.sdk.resolve(strict=True)
     out = a.out.resolve()
     if out.exists():
@@ -227,12 +238,15 @@ def main() -> None:
         target.mkdir()
         source = target / "consumer.c"
         if profile.startswith("tso-"):
-            # A retained absolute pointer relocation exercises the native
-            # exporter; a constant-return function would be too small a test.
-            source.write_text("static volatile int answer=42; "
-                              "static volatile int * volatile pointer=&answer; "
-                              "int main(int argc, char **argv) { (void)argc; "
-                              "(void)argv; return *pointer; }\n")
+            if a.tso_source:
+                shutil.copyfile(a.tso_source.resolve(strict=True), source)
+            else:
+                # A retained absolute pointer relocation exercises the native
+                # exporter; a constant-return function would be too small a test.
+                source.write_text("static volatile int answer=42; "
+                                  "static volatile int * volatile pointer=&answer; "
+                                  "int main(int argc, char **argv) { (void)argc; "
+                                  "(void)argv; return *pointer; }\n")
         elif profile != "vmkernel":
             source.write_text("int main(int argc, char **argv) { (void)argv; return argc+41; }\n")
         if profile == "vmkernel":
@@ -244,7 +258,8 @@ def main() -> None:
             results[profile] = {"component_sha256": sha(obj),
                                 "native_assembler_source_sha256": sha(assembly)}
         elif profile.startswith("tso-"):
-            results[profile] = link_tso(sdk, profile, source, target)
+            results[profile] = link_tso(sdk, profile, source, target,
+                                        a.member_prefix)
         else:
             obj = compile_one(sdk, profile, source, target / "consumer.o")
             results[profile] = link_cms(sdk, profile, obj, target)

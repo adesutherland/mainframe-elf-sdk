@@ -70,14 +70,25 @@ The SDK recipes now link from their output directory with explicit names
 requires the intended name and AMODE/RMODE. The corrected TSO64 ANY XMIT SHA-256
 was `35c3f85ce8dfab4ee113efad84025f34bae8ebf785d8848dd221c584baaa142f`;
 its guest transfer read back identically, and `RECEIVE` restored `SDKTS64A`
-with IEBCOPY severity 0. Execution remains a separate check.
+with IEBCOPY severity 0. The correction is in SDK `95ff1d4` on `develop`.
+
+The committed `sdk-member-smoke.rexx` then called each corrected member on
+that guest. The four XMITs read back byte-identically, all restored with
+IEBCOPY severity 0, and the REXX harness observed return code 42 for
+`SDKTS24`, `SDKTS31`, `SDKTS64L` and `SDKTS64A`. The exact XMIT SHA-256 values
+were `fd690fc910bcbb599d51d652835f96041a92cccdbb693456cd767d54e373e06b`,
+`e1dfb4d98db88988e3e55293411ed40624d76db6c288fb7ff0adb77fd4d5bc81`,
+`28a52770c36b048f522970140cb2e9cd13e92808882f7aead6bccd49db949e21`
+and `35c3f85ce8dfab4ee113efad84025f34bae8ebf785d8848dd221c584baaa142f`.
+These calls check entry, load and simple C return; file paths and larger
+applications still need separate guest exercises.
 
 ## Release limits
 
-These host checks do not prove the selected z/OS 1.5 macro offsets, SVC
-linkage, dataset behavior or IARV64 behavior in a guest. The `TCBFA` test
+The four simple guest calls do not prove all selected z/OS 1.5 macro offsets,
+SVC linkage, dataset behavior or the full IARV64 surface. The `TCBFA` test
 in inherited PDPCLIB is not a designated IBM programming interface. No
-Linux host package, clean-checkout build or affected guest run has passed
+Linux host package, clean-checkout build or guest file operation has passed
 for these changed native bytes. The source-only candidate is therefore
 reviewable but not a qualified 0.1.0 release. Windows remains the planned
 0.1.1 host stage.

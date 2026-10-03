@@ -140,6 +140,10 @@ def main() -> None:
     (out / "contracts/tso").mkdir(parents=True)
     shutil.copy2(ROOT / "tests/tso/sdk-member-smoke.rexx",
                  out / "contracts/tso/sdk-member-smoke.rexx")
+    shutil.copy2(ROOT / "tests/tso/sdk-file-smoke.c",
+                 out / "contracts/tso/sdk-file-smoke.c")
+    shutil.copy2(ROOT / "tests/tso/sdk-file-setup.rexx",
+                 out / "contracts/tso/sdk-file-setup.rexx")
     for source, installed in (("tso-image.ld", "image.ld"),
                               ("tso64-image.ld", "image64.ld"),
                               ("tso64-high-image.ld", "image64-high.ld")):

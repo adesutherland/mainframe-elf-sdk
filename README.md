@@ -77,7 +77,8 @@ transports. The file profile supports sequential and partitioned datasets and
 explicitly rejects VSAM. `sdk/scripts/compiler_sdk_source_package.py`
 installs the source-built sysroots, host tools and native objects. Its local
 macOS candidate passed an independent six-profile installed consumer,
-including four native TSO XMIT links. The
+including four native TSO XMIT links. All four simple C members also restored
+and returned 42 on z/OS 1.5; dataset behavior remains under test. The
 [source candidate checkpoint](docs/updates/2026-10-03-sdk-source-candidate.md)
 records the result and open Linux and guest gates.
 

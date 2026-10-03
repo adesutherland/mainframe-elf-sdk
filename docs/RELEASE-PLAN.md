@@ -58,9 +58,10 @@ host and Classic tools, and source-built TSO native entry and PDPCLIB service
 objects. Its installed consumer passed CMS24/31 MODULEs, TSO24/31/64 C decks,
 four complete native XMIT links, and the freestanding component on macOS.
 The TSO service profile supports sequential and partitioned datasets and
-explicitly rejects VSAM, IDCAMS and supervisor-mode switching. These objects
-have not passed a z/OS guest run. The complete maintained PDOS-profile
-PDPCLIB native source also assembles with source-owned PDOS service definitions.
+explicitly rejects VSAM, IDCAMS and supervisor-mode switching. All four
+source-built TSO transports restored and returned 42 for a simple C consumer
+on z/OS 1.5; file operations remain to be exercised. The complete maintained
+PDOS-profile PDPCLIB native source also assembles with source-owned PDOS service definitions.
 The
 [3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) and
 [TSO64 source entry checkpoint](updates/2026-10-03-tso64-source-entry.md)

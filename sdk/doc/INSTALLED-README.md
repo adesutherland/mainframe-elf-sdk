@@ -35,3 +35,9 @@ runtime notices.
 `contracts/tso/sdk-member-smoke.rexx` checks a restored member's return code
 on a separately qualified TSO guest. Its arguments are the load library data
 set and member name. The installed host consumer does not run that guest check.
+`contracts/tso/sdk-file-smoke.c` exercises the selected sequential and PDS
+file paths with allocated `SDKTXT` and `SDKPDS` DDs. Build it using the
+consumer's `--tso-source` and a distinct `--member-prefix` in a new output
+directory, then restore and run that member on the guest. The guest-side
+`sdk-file-setup.rexx` allocates the two DDs under a supplied task-owned data
+set prefix; it refuses an existing `.TXT` data set.

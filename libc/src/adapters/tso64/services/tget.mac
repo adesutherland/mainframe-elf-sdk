@@ -1,0 +1,14 @@
+* SPDX-License-Identifier: MIT
+* IBM TSO register form: high R1 flag byte X'80' selects TGET;
+* R0 supplies maximum line length. Defaults request WAIT and EDIT.
+* https://www.ibm.com/docs/en/zos/2.5.0?topic=tpg-register-form-tget-tput
+         MACRO
+&N       TGET  &BUF,&LEN
+         AIF   ('&BUF' NE '(9)' OR '&LEN' NE '(7)').BAD
+&N       LR    1,9
+         O     1,=X'80000000'
+         LR    0,7
+         SVC   93
+         MEXIT
+.BAD     MNOTE 8,'unsupported TSO64 TGET form'
+         MEND

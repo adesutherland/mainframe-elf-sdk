@@ -1,0 +1,21 @@
+* SPDX-License-Identifier: MIT
+* Selected z/OS SVC 120 register form for the TSO64 entry.
+* IBM MVS Diagnosis Reference SVC 120: R0 length, R1 zero for obtain,
+* R15 option byte X'30' for 31-bit and X'10' for 24-bit residence.
+* https://www.ibm.com/docs/en/zos/3.1.0?topic=descriptions-svc-120-0a78
+         MACRO
+&N       GETMAIN &FORM,&LV=,&LOC=
+         AIF   ('&FORM' NE 'RC').BAD
+         AIF   ('&LV' EQ '').BAD
+         AIF   ('&LOC' EQ 'ANY').ANY
+         AIF   ('&LOC' NE 'BELOW').BAD
+&N       L     15,=A(16)
+         AGO   .CALL
+.ANY     ANOP
+&N       L     15,=A(48)
+.CALL    L     0,=F'&LV'
+         SR    1,1
+         SVC   120
+         MEXIT
+.BAD     MNOTE 8,'unsupported TSO64 GETMAIN form'
+         MEND

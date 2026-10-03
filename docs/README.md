@@ -4,11 +4,17 @@
   profiles, packaging and qualification limits.
 - [Release plan](RELEASE-PLAN.md): 0.1.0 source-build and host gates, followed
   by Windows 0.1.1.
-- [Latest source-build checkpoint](updates/2026-10-03-source-build.md): exact
-  Mac host results and remaining native, installed-package and guest work.
+- [Source-build checkpoint](updates/2026-10-03-source-build.md): exact
+  Mac host compiler, library and C sysroot results.
 - [Native PDPCLIB and TSO64 review](updates/2026-10-03-funhead-pdpclib-tso64.md):
   source-built PDOS service assembly, the TSO macro boundary and the distinct
   TSO64 entry requirements.
+- [TSO64 source entry checkpoint](updates/2026-10-03-tso64-source-entry.md):
+  both source-built entry decks, selected service interface and host link
+  shape at that checkpoint.
+- [Source candidate checkpoint](updates/2026-10-03-sdk-source-candidate.md):
+  complete host native links and installed six-profile macOS candidate,
+  with Linux and guest gates still open.
 
 Each component has its own README, UPSTREAM.md, AGENTS.md and single
 `doc/BACKLOG.md`. Enduring guides explain current design, the release plan

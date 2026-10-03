@@ -1,0 +1,68 @@
+# Source-built SDK candidate checkpoint — 3 October 2026
+
+We have a local Apple Silicon macOS source-input SDK candidate with an
+installed consumer pass for all six advertised profiles. It is a host build
+and transport result. The changes in the SDK and z/PDOS `develop` checkouts
+were uncommitted at this checkpoint, and there is no 0.1.0 tag or published
+release. Linux and affected z/OS guest checks remain open.
+
+## Native source route
+
+The SDK's maintained TSO24, TSO31, TSO64 low and TSO64 AMODE64/RMODE ANY
+entries assemble with z/PDOS Classic Assembler. The maintained PDPCLIB
+`tso31-sdk-files` selection assembles with selected source-owned TSO
+terminal, EXTRACT and control-block forms. This selection keeps sequential
+and partitioned dataset paths; VSAM, IDCAMS and supervisor-mode switching
+return unsupported status. The broader inherited `tso31-lean` path remains
+separate. IBM macro source, ASMA90 objects and frozen upstream archives are
+not native build inputs.
+
+On this host, the service assembled 4,331 statements, 25 sections, 971
+symbols and 55 fixups. Its joined source SHA-256 was
+`09ff331cb4218032c6d3fda3e33d517ee3e6ef282eea490929ac3c7339600e05`;
+the service object SHA-256 was
+`313d8cd68070889decdf1770a568ad2deeeb075c2e54ed52022c54e7f75214a9`.
+The independent TSO fixture checked SVC 6 terminal forms and the SVC 40
+PSCB EXTRACT list. The z/PDOS host suite passed 93/93 at `-j 4`.
+
+`sdk/scripts/build-tso-native.crexx` rebuilds the four entries and this
+service with the source-built Classic Assembler, runs the native deck checks,
+and links them to source-built TSO C decks with the Classic Linker. All four
+TSO24, TSO31, TSO64 low-entry and TSO64 AMODE64 entry XMIT outputs linked.
+Their XMIT SHA-256 values were respectively
+`b4364822bbaf89316059174549d6a3a0d65364f6e1172dcdd7d0a44ebf4e5739`,
+`ee378c2f6afaf386ae8522f11924c2341e1793acfc4237b365473a41717172c2`,
+`a19034372e8e99e06bf50b9cdce26aa292e2bae878e83f5a71d508d0187413de`,
+and `47482a1d207e3b80956109d0cde518b2c56447135562d54fb5e6a24ae1007c`.
+The generic SDK uses the TSO64 AMODE64/RMODE ANY route; the application
+low launchers for high-code placement stay in Mainframe Lab.
+
+## Package and installed consumer
+
+`sdk/scripts/compiler_sdk_source_package.py` copied the five source-built
+sysroots, source-built host GCC/binutils and Classic tools, source-built
+native objects, profiles, layouts, adapters, checkers and notices into a
+local candidate. It takes no runtime archive or prebuilt native-deck argument.
+The final local package recipe also copies SDK and z/PDOS component licence
+and provenance records into `notices/`, alongside the sysroot runtime notices.
+The first candidate manifest recorded 1,641 installed files and no
+bootstrap-input fields. That 67 MiB archive SHA-256 was
+`3a62eda5f8a03a89804652afc4b6042a0bc927161e61444c7a1abc3077329615`.
+
+After unpacking under `/tmp` outside the producer checkout, the installed
+consumer verified the package manifest and passed CMS24/31 MODULE builds,
+TSO24/31/64 C ELF deck builds, the `vmkernel` component, and complete TSO
+native XMIT links using installed Classic Linker and native service objects.
+The TSO64 installed consumer covered both generic entry modes. That first result
+receipt SHA-256 was
+`fcea10ab67f28b25a01e6dab88f97131af05ff154ac3f716e070667baa2e4050`.
+
+## Release limits
+
+These host checks do not prove the selected z/OS 1.5 macro offsets, SVC
+linkage, dataset behavior or IARV64 behavior in a guest. The `TCBFA` test
+in inherited PDPCLIB is not a designated IBM programming interface. No
+Linux host package, clean-checkout build or affected guest run has passed
+for these changed native bytes. The source-only candidate is therefore
+reviewable but not a qualified 0.1.0 release. Windows remains the planned
+0.1.1 host stage.

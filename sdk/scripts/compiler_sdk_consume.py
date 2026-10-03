@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -18,10 +19,12 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run(*args: str | Path, cwd: Path | None = None) -> None:
+def run(*args: str | Path, cwd: Path | None = None,
+        env: dict[str, str] | None = None) -> None:
     command = [str(x) for x in args]
     print("+", " ".join(command), flush=True)
-    subprocess.run(command, cwd=cwd, check=True)
+    subprocess.run(command, cwd=cwd, check=True,
+                   env={**os.environ, **(env or {})})
 
 
 def verify(sdk: Path) -> dict:
@@ -149,6 +152,28 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path) -> dict:
     result = {"object_sha256": sha(objects[1]), "elf_sha256": sha(elf),
             "runtime_libraries_sha256": {path.name: sha(path) for path in libraries},
             "native_deck_sha256": sha(deck)}
+    native = sdk / "native/source"
+    if native.is_dir():
+        classic = sdk / "host/classic/bin/mf-classic-ld"
+        service = native / "mvssupa.obj"
+        if bits == "24":
+            routes = (("default", "tso24-entry.obj", "LABTS24", "24", "24"),)
+        elif bits == "31":
+            routes = (("default", "tso31-any-entry.obj", "LABTSO", "31", "31"),)
+        else:
+            routes = (("default", "tso64-any-entry.obj", "LABTS64", "64", "31"),
+                      ("low-entry", "tso64-low-entry.obj", "LABTS64", "31", "31"))
+        native_results = {}
+        for route, entry, symbol, amode, rmode in routes:
+            xmit = out / f"consumer-{route}.XMI"
+            map_file = out / f"consumer-{route}.map"
+            run(classic, "--oformat", "xmit", "--amode", amode,
+                "--rmode", rmode, "-e", symbol, "-Map", map_file,
+                "-o", xmit, native / entry, service, deck,
+                env={"SOURCE_DATE_EPOCH": "0"})
+            native_results[route] = {"xmit_sha256": sha(xmit),
+                                     "map_sha256": sha(map_file)}
+        result["source_native_links"] = native_results
     if bits == "64" and (sdk / "native/high-launchers").is_dir():
         high_entry = out / "high-entry.o"
         run(sdk / "host/binutils/bin/s390-linux-gnu-as", "-m64",

@@ -14,11 +14,15 @@ from pathlib import Path
 from tso31_deck_check import EXPECTED_SERVICES, check_deck
 
 
-def check_source_entry(path: Path, bits: int) -> dict:
-    if bits not in (24, 31):
+def check_source_entry(path: Path, bits: int, amode: int | None = None) -> dict:
+    if bits not in (24, 31, 64):
         raise ValueError(f"unsupported entry width: {bits}")
-    name = "LABTS24" if bits == 24 else "LABTSO"
-    attribute = 0x01 if bits == 24 else 0x06
+    if amode is None:
+        amode = bits
+    if amode != bits and (bits, amode) != (64, 31):
+        raise ValueError(f"unsupported entry AMODE: TSO{bits}/AMODE{amode}")
+    name = {24: "LABTS24", 31: "LABTSO", 64: "LABTS64"}[bits]
+    attribute = {24: 0x01, 31: 0x06, 64: 0x14}[amode]
     info = check_deck(path, expected_attribute=attribute)
     if len(info["sections"]) != 1 or info["sections"][0]["name"] != name:
         raise ValueError(f"expected one {name} section")
@@ -44,12 +48,21 @@ def check_source_entry(path: Path, bits: int) -> dict:
     # recorded in z-pdos/tso31-bridge/doc/architecture/SERVICES.md.
     patterns = {"SVC 120": (bytes.fromhex("0a78"), 6),
                 "SVC 93": (bytes.fromhex("0a5d"), 2),
-                "SVC 99": (bytes.fromhex("0a63"), 1),
-                "below-line GETMAIN": (bytes.fromhex("1b1141f000100a78"),
-                                       3 if bits == 24 else 1)}
+                "SVC 99": (bytes.fromhex("0a63"), 1)}
+    if bits < 64:
+        patterns["below-line GETMAIN"] = (bytes.fromhex("1b1141f000100a78"),
+                                          3 if bits == 24 else 1)
     if bits == 31:
         patterns["31-bit GETMAIN"] = (bytes.fromhex("1b1141f000300a78"), 2)
         patterns["EPSW R2,R3"] = (bytes.fromhex("b98d0023"), 2)
+    if bits == 64:
+        patterns["IARV64 PC"] = (bytes.fromhex("b218e000"), 2)
+        # The z/OS 1.5 IARV64 linkage loads EX=14 into R15 before PC.
+        patterns["IARV64 EX linkage"] = (
+            bytes.fromhex("41f0000e16efb218e000"), 2)
+        patterns["SAM64"] = (bytes.fromhex("010e"), 6)
+        if amode == 64:
+            patterns["entry EPSW R2,R3"] = (bytes.fromhex("b98d0023"), 2)
     for label, (pattern, expected) in patterns.items():
         actual = sum(image[i:i + len(pattern)] == pattern and
                      all(present[i:i + len(pattern)])
@@ -57,16 +70,18 @@ def check_source_entry(path: Path, bits: int) -> dict:
         if actual != expected:
             raise ValueError(f"{label}: expected {expected}, found {actual}")
     return {"format": "mainframe-elf-sdk-tso-entry-source-v1", "profile_bits": bits,
+            "amode": amode,
             "entry": info, "independent_service_patterns": sorted(patterns)}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bits", type=int, choices=(24, 31), required=True)
+    parser.add_argument("--bits", type=int, choices=(24, 31, 64), required=True)
+    parser.add_argument("--amode", type=int, choices=(31, 64))
     parser.add_argument("--entry", type=Path, required=True)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
-    result = check_source_entry(args.entry.resolve(strict=True), args.bits)
+    result = check_source_entry(args.entry.resolve(strict=True), args.bits, args.amode)
     if args.out:
         args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     print(f"TSO{args.bits} source entry mode, closure and service instructions PASS")

@@ -1,0 +1,12 @@
+* SPDX-License-Identifier: MIT
+* IBM TSO register form: R1 buffer, R0 length, SVC 93.
+* https://www.ibm.com/docs/en/zos/2.5.0?topic=tpg-register-form-tget-tput
+         MACRO
+&N       TPUT  &BUF,&LEN
+         AIF   ('&BUF' NE '(9)' OR '&LEN' NE '(8)').BAD
+&N       LR    1,9
+         LR    0,8
+         SVC   93
+         MEXIT
+.BAD     MNOTE 8,'unsupported TSO64 TPUT form'
+         MEND

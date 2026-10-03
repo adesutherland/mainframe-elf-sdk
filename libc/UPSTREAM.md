@@ -25,3 +25,17 @@ independently authored z/PDOS `tso31-bridge/src/entry31.asm` and its public
 service-interface record. The SDK entries retain their own ABI, addressing
 checks and text modes; neither the source-built object checks nor the public
 interface facts establish guest behavior.
+
+The two maintained TSO64 entries descend from Mainframe Lab's z/OS 1.5
+TSO64 experiment. The low launchers for its separate application high-code
+route remain in that laboratory. The SDK owns the generic entry sources and
+selected MIT-licensed service macros in `src/adapters/tso64/services/`.
+Those macros express only the GETMAIN/FREEMAIN, TPUT/TGET, DYNALLOC and
+IARV64 operations used by these entries. The IARV64 version-zero layout and
+PC linkage were checked against the older IBM macro edition available in the
+private laboratory; IBM macro source is neither copied nor a build input.
+The public [SVC 120](https://www.ibm.com/docs/en/zos/3.1.0?topic=descriptions-svc-120-0a78),
+[TSO TGET/TPUT](https://www.ibm.com/docs/en/zos/2.5.0?topic=tpg-register-form-tget-tput)
+and [IARV64](https://www.ibm.com/docs/en/zos/2.5.0?topic=allocation-requestgetstor-option-iarv64)
+references describe the selected interfaces. Source assembly and host object
+inspection do not establish z/OS 1.5 service behavior.

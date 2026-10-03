@@ -52,13 +52,19 @@ fuller CMS plain-C consumer also links and exports after correcting archive
 membership and the strict linker script.
 
 The existing package recipe remains a bootstrap route: it consumes pinned
-runtime archives and ASMA90-produced native decks. z/PDOS Classic Assembler
-now builds checked TSO24 and TSO31 entry objects from maintained SDK source,
-using selected public service register interfaces; these entries have not
-passed a guest run. The complete maintained PDOS-profile PDPCLIB native
-source also assembles with source-owned PDOS service definitions. The MVS/TSO
-service object and TSO64 entry still need source-built routes; the
-[3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) records
-their exact stops. A source-only installed package, Linux host evidence and
-affected guest checks are open 0.1.0 gates. Windows remains the separately
-staged 0.1.1 host gate.
+runtime archives and ASMA90-produced native decks. A separate source-input
+candidate route now installs all five source-built C sysroots, source-built
+host and Classic tools, and source-built TSO native entry and PDPCLIB service
+objects. Its installed consumer passed CMS24/31 MODULEs, TSO24/31/64 C decks,
+four complete native XMIT links, and the freestanding component on macOS.
+The TSO service profile supports sequential and partitioned datasets and
+explicitly rejects VSAM, IDCAMS and supervisor-mode switching. These objects
+have not passed a z/OS guest run. The complete maintained PDOS-profile
+PDPCLIB native source also assembles with source-owned PDOS service definitions.
+The
+[3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) and
+[TSO64 source entry checkpoint](updates/2026-10-03-tso64-source-entry.md)
+record the earlier sequence; the [source candidate checkpoint](updates/2026-10-03-sdk-source-candidate.md)
+records the new host result. A clean-checkout release build, Linux host
+qualification and affected guest checks are open 0.1.0 gates. Windows remains
+the separately staged 0.1.1 host gate.

@@ -1,0 +1,16 @@
+* SPDX-License-Identifier: MIT
+* Selected z/OS SVC 120 register release: R0 length, R1 address,
+* R15 option X'01' for conditional FREEMAIN in default subpool zero.
+* https://www.ibm.com/docs/en/zos/3.1.0?topic=descriptions-svc-120-0a78
+         MACRO
+&N       FREEMAIN &FORM,&LV=,&A=
+         AIF   ('&FORM' NE 'RC').BAD
+         AIF   ('&LV' EQ '').BAD
+         AIF   ('&A' NE '(9)').BAD
+&N       L     0,=F'&LV'
+         LR    1,9
+         L     15,=A(1)
+         SVC   120
+         MEXIT
+.BAD     MNOTE 8,'unsupported TSO64 FREEMAIN form'
+         MEND

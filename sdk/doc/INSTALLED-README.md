@@ -20,3 +20,13 @@ Older local packages built by `compiler_sdk_package.py` include pinned
 bootstrap runtime archives and native object decks. Those packages are not
 source-only 0.1.0 release artifacts. The source-only release gate is described
 in the project `docs/RELEASE-PLAN.md`.
+
+A package produced by `compiler_sdk_source_package.py` includes source-built
+Classic Assembler/Linker binaries and native TSO entry/service objects. Its
+installed consumer also links TSO24, TSO31 and two TSO64 native XMIT
+transports. The package manifest identifies it as a local candidate until
+the host and guest release gates pass.
+
+`notices/` contains the SDK licence scope and the z/PDOS Classic Assembler,
+Classic Linker and PDPCLIB component notices. Each sysroot also carries its
+runtime notices.

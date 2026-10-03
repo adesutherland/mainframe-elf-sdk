@@ -1,0 +1,79 @@
+/* Build the generic TSO native bridge from SDK and z/PDOS source, then
+   link it to source-built C decks. Host transport only; no guest claim. */
+options levelb
+import rxfnsb
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 <> 4 then do
+    say "usage: crexx -nokeep sdk/scripts/build-tso-native.crexx --args ZPDOS_ROOT ZPDOS_BUILD_SUBDIR C_DECK_ROOT NEW_OUTPUT"
+    return 2
+  end
+  zpdos = args.1; service_rel = args.2; cdeck_root = args.3; out = args.4
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(zpdos,1) <> "/" then zpdos = root || "/" || zpdos
+  if left(cdeck_root,1) <> "/" then cdeck_root = root || "/" || cdeck_root
+  if left(out,1) <> "/" then out = root || "/" || out
+  if left(service_rel,6) <> "build/" | pos("..",service_rel) <> 0 then return 2
+  as_tool = zpdos || "/build/tools/assembler/mf-classic-as"
+  ld_tool = zpdos || "/build/tools/linker/mf-classic-ld"
+  service_dir = zpdos || "/" || service_rel
+  service_obj = service_dir || "/mvssupa.obj"
+  address crexx "run test -x :as_tool"
+  if rc <> 0 then return 2
+  address crexx "run test -x :ld_tool"
+  if rc <> 0 then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing native output:" out
+    return 2
+  end
+  entries = out || "/entries"
+  address crexx "run crexx -nokeep libc/scripts/build-tso-entries.crexx --args :as_tool :entries"
+  if rc <> 0 then return rc
+  address crexx "run cmake -E chdir :zpdos crexx -nokeep pdpclib/scripts/build-native.crexx --args tso31-sdk-files :as_tool :service_rel"
+  if rc <> 0 then return rc
+  address crexx "run cmake -E make_directory :out"
+  if rc <> 0 then return rc
+  service_copy = out || "/mvssupa.obj"
+  service_receipt = out || "/mvssupa-source.sha256"
+  source_receipt = service_dir || "/native.sha256"
+  address crexx "run cmake -E copy :service_obj :service_copy"
+  if rc <> 0 then return rc
+  address crexx "run cmake -E copy :source_receipt :service_receipt"
+  if rc <> 0 then return rc
+  native31check = out || "/tso31-native-check.json"
+  entry31 = entries || "/tso31-any-entry.obj"
+  address crexx "run python3 sdk/scripts/tso31_deck_check.py --entry :entry31 --service :service_copy --out :native31check"
+  if rc <> 0 then return rc
+  native64check = out || "/tso64-native-check.json"
+  cdeck64 = cdeck_root || "/tso-zos64-v1/consumer.obj"
+  entry64 = entries || "/tso64-any-entry.obj"
+  address crexx "run python3 sdk/scripts/tso64_deck_check.py --entry :entry64 --service :service_copy --image :cdeck64 --out :native64check"
+  if rc <> 0 then return rc
+  do i = 1 to 4
+    bits = word("24 31 64 64",i)
+    suffix = word("24 31 64-low 64-any",i)
+    mode = word("24 31 31 64",i)
+    residence = word("24 31 31 31",i)
+    entry_name = word("LABTS24 LABTSO LABTS64 LABTS64",i)
+    entry_file = word("tso24-entry.obj tso31-any-entry.obj tso64-low-entry.obj tso64-any-entry.obj",i)
+    profile = "tso-zos" || bits || "-v1"
+    native_entry = entries || "/" || entry_file
+    cdeck = cdeck_root || "/" || profile || "/consumer.obj"
+    xmit = out || "/tso" || suffix || ".XMI"
+    map = out || "/tso" || suffix || ".map"
+    address crexx "run test -f :cdeck"
+    if rc <> 0 then return 2
+    address crexx "run cmake -E env SOURCE_DATE_EPOCH=0 :ld_tool --oformat xmit --amode :mode --rmode :residence -e :entry_name -Map :map -o :xmit :native_entry :service_obj :cdeck"
+    if rc <> 0 then return rc
+    address crexx "run shasum -a 256 :xmit :map"
+    if rc <> 0 then return rc
+  end
+  address crexx "run shasum -a 256 :as_tool :ld_tool :service_obj"
+  if rc <> 0 then return rc
+  say "Four TSO native transports linked from source objects; guest qualification remains open."
+  return 0

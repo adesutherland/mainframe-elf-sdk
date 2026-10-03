@@ -7,8 +7,8 @@ producer, packager and consumer interfaces. The historical patch inputs under
 Assembler, Linker and PDPCLIB source.
 
 This directory also owns the reviewed source inventory for Mainframe ELF SDK.
-It is a **standalone source extraction**, not a claim that every runtime and
-native adapter can already be rebuilt from source. The full lab
+The local macOS source-input candidate now includes rebuilt runtimes and
+native adapters; Linux and guest qualification remain open. The full lab
 retains its legacy compiler and independent OS work. The dedicated PDOS
 application target and runtime are outside this SDK; PDOS may exercise
 unchanged TSO binaries through its supported services.
@@ -60,12 +60,31 @@ has only freestanding component output. TSO64 has a qualified RMODE ANY route
 and a separately reviewed low-launcher/RMODE64 package route; execution on
 modern z/OS remains unverified.
 
+With source-built TSO C decks already present, build the native objects and
+host XMIT transports using the z/PDOS `develop` checkout:
+
+```sh
+crexx -nokeep sdk/scripts/build-tso-native.crexx --args \
+  /path/to/z-pdos build/new-pdpclib-service /path/to/C-decks build/new-tso-native
+```
+
+`build/new-pdpclib-service` is created under the z/PDOS checkout; the final
+argument is a new SDK build directory. The recipe requires source-built
+Classic Assembler and Linker binaries in the z/PDOS `build/tools/` tree.
+The source-input packager takes the five built sysroots, this native output,
+the two Classic binaries and the z/PDOS source root for component notices;
+run `python3
+sdk/scripts/compiler_sdk_source_package.py --help` for its input names.
+The installed consumer checks each profile and links native TSO XMIT
+transports using only installed tools and objects. Host success does not
+establish z/OS guest behavior.
+
 GCC is GPLv3 with its retained runtime exception; binutils and newlib carry
 their own upstream licences and file notices. PDPCLIB native service source
-retains its own notice. The baseline native decks and accepted RMODE ANY
-`PDPL34.obj`/`E64.obj` adapters were assembled with ASMA90. They are pinned
-bootstrap inputs until a
-complete open-source regeneration path is demonstrated. No proprietary
-commercial licence is required by this producer, but a source-only claim for
-those decks would be premature. See the [SDK guide](../docs/compiler/SDK.md)
-and the laboratory's dated SDK report for the exact matrix and remaining gates.
+retains its own notice. The older bootstrap package retains ASMA90-produced
+decks; the new source-input candidate uses maintained z/PDOS assembler,
+linker and PDPCLIB source instead. Its local macOS installed consumer passes,
+while Linux and guest qualification remain open. See the
+[SDK guide](../docs/compiler/SDK.md) and
+[source candidate checkpoint](../docs/updates/2026-10-03-sdk-source-candidate.md)
+for the exact matrix and remaining gates.

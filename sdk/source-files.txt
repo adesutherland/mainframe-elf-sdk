@@ -34,6 +34,9 @@ docs/updates/2026-09-30-cms-empty-input.md
 docs/updates/2026-09-30-heap-defaults.md
 docs/updates/2026-10-01-source-publication.md
 docs/updates/2026-10-03-source-build.md
+docs/updates/2026-10-03-funhead-pdpclib-tso64.md
+docs/updates/2026-10-03-tso64-source-entry.md
+docs/updates/2026-10-03-sdk-source-candidate.md
 libc/AGENTS.md
 libc/LICENSE
 libc/README.md
@@ -90,6 +93,13 @@ libc/src/adapters/tso/services.h
 libc/src/adapters/tso/signals.c
 libc/src/adapters/tso64/entry64-any.asm
 libc/src/adapters/tso64/entry64.asm
+libc/src/adapters/tso64/services/dynalloc.mac
+libc/src/adapters/tso64/services/freemain.mac
+libc/src/adapters/tso64/services/getmain.mac
+libc/src/adapters/tso64/services/tget.mac
+libc/src/adapters/tso64/services/tput.mac
+libc/src/adapters/tso64/services/v64det.mac
+libc/src/adapters/tso64/services/v64get.mac
 libc/src/adapters/tso64/filebridge.c
 libc/src/adapters/tso64/high-entry.s
 libc/src/adapters/tso64/profile.h
@@ -113,6 +123,8 @@ sdk/scripts/check_high_entry.py
 sdk/scripts/compiler_sdk.py
 sdk/scripts/compiler_sdk_consume.py
 sdk/scripts/compiler_sdk_package.py
+sdk/scripts/compiler_sdk_source_package.py
+sdk/scripts/build-tso-native.crexx
 sdk/scripts/host_module.py
 sdk/scripts/pdos64_xmit_unload.py
 sdk/scripts/tso31_deck_check.py

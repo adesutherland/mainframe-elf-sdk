@@ -6,8 +6,10 @@ profiles. The checked upstream newlib archive supplies unmodified files;
 tree directly. The old recovery patch is frozen in `archive/` and is absent
 from the normal preparation path.
 
-The SDK package currently consumes separately built runtime archives. The
-source-built runtime and installed sysroot gates are in
+The older bootstrap package consumes separately built runtime archives. A
+source-input local candidate now packages five source-built sysroots. The
+remaining qualification gates are in
 [the release plan](../docs/RELEASE-PLAN.md) and [backlog](doc/BACKLOG.md).
-The TSO24 and TSO31 entry sources assemble with z/PDOS Classic Assembler and
-pass host object checks; service objects and guest checks remain open.
+The TSO24, TSO31 and both TSO64 entry sources assemble with z/PDOS Classic
+Assembler and pass host object checks. A selected source-built TSO PDPCLIB
+service and complete host native links pass; guest checks remain open.

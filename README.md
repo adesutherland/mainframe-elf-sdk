@@ -69,7 +69,17 @@ The selected runtime recipes under `libc/scripts/` also need a host cREXX
 executable. They build checked libraries for the five application profiles;
 the CMS recipes also build checked adapters and startup objects. The
 `build-tso-entries.crexx` recipe uses a source-built z/PDOS Classic Assembler
-to produce checked TSO24 and TSO31 native entry objects.
+to produce checked TSO24, TSO31 and both TSO64 native entry objects.
+
+The `sdk/scripts/build-tso-native.crexx` recipe adds the maintained z/PDOS
+PDPCLIB TSO file service and links source-built C decks to complete host XMIT
+transports. The file profile supports sequential and partitioned datasets and
+explicitly rejects VSAM. `sdk/scripts/compiler_sdk_source_package.py`
+installs the source-built sysroots, host tools and native objects. Its local
+macOS candidate passed an independent six-profile installed consumer,
+including four native TSO XMIT links. The
+[source candidate checkpoint](docs/updates/2026-10-03-sdk-source-candidate.md)
+records the result and open Linux and guest gates.
 
 The older `sdk/scripts/compiler_sdk_package.py` can assemble a versioned local SDK from
 the fresh host tools and exact, hash-checked CMS24, CMS31 and MVS/TSO runtime
@@ -107,7 +117,7 @@ only generic compiler/runtime/packager code and generic C profile checks.
 Original Mainframe Lab code and documentation are [MIT licensed](LICENSE);
 inherited GCC, binutils, newlib, PDOS/PDLD and PDPCLIB material retains its
 own terms. Read [licensing and provenance](LICENSING.md) before distributing a
-package. The source producer has no required proprietary commercial licence. The
-native assembler/macro regeneration and prebuilt object redistribution gaps
-remain explicit. The CI definition builds source tools on macOS and Linux;
-it does not publish artifacts or qualify the unavailable native inputs.
+package. The source producer has no required proprietary commercial licence.
+The source-built native route removes prebuilt objects from the local
+candidate. The CI definition builds source tools on macOS and Linux; it does
+not publish artifacts or qualify the changed native inputs in a guest.

@@ -1,4 +1,4 @@
-/* Build the source-owned TSO24 and TSO31 classic entry objects.
+/* Build the source-owned TSO24, TSO31 and TSO64 classic entry objects.
    The supplied assembler must be built from maintained z/PDOS source.
    PDPCLIB service objects and guest execution remain separate gates. */
 options levelb
@@ -28,8 +28,12 @@ main: procedure = .int
   if rc <> 0 then return rc
   entry24 = out || "/tso24-entry.obj"
   entry31 = out || "/tso31-any-entry.obj"
+  entry64low = out || "/tso64-low-entry.obj"
+  entry64any = out || "/tso64-any-entry.obj"
   receipt24 = out || "/tso24-check.json"
   receipt31 = out || "/tso31-check.json"
+  receipt64low = out || "/tso64-low-check.json"
+  receipt64any = out || "/tso64-any-check.json"
   address crexx "run :as_tool --profile z900 libc/src/adapters/tso/entry24.asm :entry24"
   if rc <> 0 then return rc
   address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 24 --entry :entry24 --out :receipt24"
@@ -38,7 +42,16 @@ main: procedure = .int
   if rc <> 0 then return rc
   address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 31 --entry :entry31 --out :receipt31"
   if rc <> 0 then return rc
-  address crexx "run shasum -a 256 :as_tool :entry24 :entry31 libc/scripts/build-tso-entries.crexx"
+  service_macros = "libc/src/adapters/tso64/services"
+  address crexx "run :as_tool --profile z900 --macros --macro-model-limit 4096 --macro-limit 128 -I :service_macros libc/src/adapters/tso64/entry64.asm :entry64low"
   if rc <> 0 then return rc
-  say "TSO24 and TSO31 source entry object build PASS; native services and guest checks remain open."
+  address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 64 --amode 31 --entry :entry64low --out :receipt64low"
+  if rc <> 0 then return rc
+  address crexx "run :as_tool --profile z900 --macros --macro-model-limit 4096 --macro-limit 128 -I :service_macros libc/src/adapters/tso64/entry64-any.asm :entry64any"
+  if rc <> 0 then return rc
+  address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 64 --amode 64 --entry :entry64any --out :receipt64any"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :as_tool :entry24 :entry31 :entry64low :entry64any libc/scripts/build-tso-entries.crexx"
+  if rc <> 0 then return rc
+  say "TSO24/31/64 source entry object build PASS; native services and guest checks remain open."
   return 0

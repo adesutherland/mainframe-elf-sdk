@@ -1,0 +1,19 @@
+* SPDX-License-Identifier: MIT
+* Selected IARV64 DETACH version-zero parameter interface for z/OS 1.5.
+* IBM MVS Extended Addressability Guide and XEQWORK IARV64 mapping.
+         MACRO
+&N       V64DET
+&N       XC    MEMPL(88),MEMPL
+         MVI   MEMPL+1,X'03'
+         MVI   MEMPL+5,X'80'
+         MVC   MEMPL+56(8),HIGHADDR
+         LA    1,MEMPL
+         L     14,16
+         L     14,772(14)
+         L     14,208(14)
+         LA    15,14
+         OR    14,15
+         PC    0(14)
+         ST    15,MEMRC
+         ST    0,MEMRSN
+         MEND

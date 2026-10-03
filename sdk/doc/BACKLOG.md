@@ -5,8 +5,8 @@
 - Type: qualification
 - Status: In progress
 - Target: macOS and Linux 0.1.0 installed SDK and its six advertised profiles
-- Observation: The existing package recipe accepts pinned runtime archives and ASMA90-produced native decks. It also carries historical PDLD and PDPCLIB patch inputs.
-- Evidence: `scripts/compiler_sdk_package.py` names those bootstrap inputs explicitly; `docs/RELEASE-PLAN.md` records the replacement gates. On 3 October 2026 the Mac producer, selected libraries and TSO24/31 entry objects have passed source builds, but no source-only installed package has passed.
+- Observation: The old package recipe still accepts pinned runtime archives and ASMA90-produced native decks. A separate source-input candidate now packages rebuilt sysroots, Classic tools and native objects and passes an independent installed macOS consumer. A clean-checkout build, Linux host and affected guest checks remain open.
+- Evidence: `scripts/compiler_sdk_package.py` names the old bootstrap inputs. `scripts/compiler_sdk_source_package.py`, `scripts/build-tso-native.crexx` and the [3 October source candidate checkpoint](../../docs/updates/2026-10-03-sdk-source-candidate.md) record the new local package, manifest and six-profile installed consumer result.
 - Acceptance: Install all profile sysroots, host helpers and native objects from checked maintained source without bootstrap archives or private assembler inputs; run an independent installed consumer, inspect identities and notices, qualify Linux, then prepare reviewable 0.1.0 assets.
 
 ## SDK-002: Native Windows host release

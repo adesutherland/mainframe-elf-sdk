@@ -80,9 +80,11 @@ CMS adapters and startup and assemble five checked C sysroots. On 3 October
 2026, the Mac host route passed all five source-built C consumers: CMS24/31
 MODULEs and TSO24/31/64 ELF decks. The freestanding `vmkernel` component
 also compiled and exported. These local results are described in the dated
-source-build report. Classic Assembler now builds checked TSO24 and TSO31
-entry objects from maintained source. The TSO64 entry, PDPCLIB service
-objects, installed package, Linux and guest checks are open.
+source-build report. Classic Assembler now builds checked TSO24, TSO31 and
+both TSO64 entry objects from maintained source. The selected PDPCLIB TSO
+file service now assembles from z/PDOS source and four complete native XMIT
+links pass. A source-input installed candidate passes all six profiles on
+macOS. Linux, clean-checkout and affected guest gates remain open.
 
 The older bootstrap package assembler accepts the separately qualified CMS24, CMS31
 and three-profile MVS/TSO newlib archives as **checked bootstrap inputs**.
@@ -101,8 +103,13 @@ PDLD writer changes. The original combined PDLD/PDOS loader patch and its
 kernel changes remain in Mainframe Lab. On the pinned PDOS source archive, the
 split yields identical PDLD source files and XMIT fixture bytes.
 The bootstrap package step does not consume the newly source-built sysroots;
-its input archives retain their own older provenance. A source-only installer
-and independent installed consumer are still required for 0.1.0.
+its input archives retain their own older provenance. The separate
+`sdk/scripts/compiler_sdk_source_package.py` takes source-built sysroots,
+Classic tools, native objects and the z/PDOS source root for component
+notices, and installs them without those archives.
+Its independent installed consumer passed on macOS, including complete TSO
+XMIT links. The [source candidate checkpoint](../updates/2026-10-03-sdk-source-candidate.md)
+records inputs, outputs and open release gates.
 
 The retained baseline native TSO entry and service objects are pinned bootstrap
 inputs. `TENTRY.obj` is SHA-256
@@ -126,9 +133,9 @@ reassemble the patched source for z/OS 1.5 TSO24 dataset I/O. PDPCLIB's source n
 credits Paul Edwards and contributors and states its own public-domain claim;
 that notice does not apply to all SDK material. The IBM macro library and
 ASMA90 are native/private prerequisites of the retained bootstrap route.
-The new TSO24/31 entry object checks do not complete open-source regeneration
-of these decks, and the private deck bundle's
-redistribution rights require review before any public SDK release.
+The source-input candidate replaces these native decks with maintained source
+objects. The private bootstrap deck bundle is retained only for historical
+comparison and must not be distributed as part of that candidate.
 
 The separate RMODE64 candidate pins the three cREXX low launchers
 `LAU65O.obj`, `LAVM65O.obj` and `LAC65O.obj`, respectively SHA-256

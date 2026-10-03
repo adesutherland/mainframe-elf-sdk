@@ -1,0 +1,7 @@
+* SPDX-License-Identifier: MIT
+* IBM MVS dynamic allocation, SVC 99 with R1 pointing to a request list.
+* See IBM MVS Programming: Authorized Assembler Services Guide, SVC 99.
+         MACRO
+&N       DYNALLOC
+&N       SVC   99
+         MEND

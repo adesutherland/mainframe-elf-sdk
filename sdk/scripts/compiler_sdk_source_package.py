@@ -23,6 +23,11 @@ SYSROOTS = {
     "tso31": "tso-zos31-v1",
     "tso64": "tso-zos64-v1",
 }
+NATIVE_ENTRY_SOURCES = {
+    "tso-zos24-v1": "libc/src/adapters/tso/entry24.asm",
+    "tso-zos31-v1": "libc/src/adapters/tso/entry31-any.asm",
+    "tso-zos64-v1": "libc/src/adapters/tso64/entry64.asm",
+}
 ENTRY_OBJECTS = ("tso24-entry.obj", "tso31-any-entry.obj",
                  "tso64-low-entry.obj", "tso64-any-entry.obj")
 ZPDOS_COMPONENTS = ("assembler", "linker", "pdpclib")
@@ -37,6 +42,11 @@ def source_directory(path: Path, expected: str) -> Path:
             raise ValueError(f"incomplete sysroot: {source / name}")
     if expected.startswith(("vm370", "cms20")) and not (source / "startup.o").is_file():
         raise ValueError(f"missing CMS startup: {source}")
+    entry = NATIVE_ENTRY_SOURCES.get(expected)
+    if entry is not None:
+        packaged = source / "native/entry.asm"
+        if not packaged.is_file() or packaged.read_bytes() != (ROOT / entry).read_bytes():
+            raise ValueError(f"stale TSO entry source in sysroot: {packaged}")
     return source
 
 
@@ -185,7 +195,7 @@ def main() -> None:
     files = {str(path.relative_to(out)): sha(path) for path in sorted(out.rglob("*"))
              if path.is_file() and not path.is_symlink() and not path.name.startswith("._")}
     receipt = {"format": "mainframe-compiler-sdk-local-v1",
-               "version": "0.1.0-candidate", "host": tool_receipt["host"],
+               "version": "0.1.0", "host": tool_receipt["host"],
                "source_only_build_inputs": True,
                "tool_producer": tool_receipt,
                "source_manifest_sha256": sha(ROOT / "SOURCE-MANIFEST.json"),

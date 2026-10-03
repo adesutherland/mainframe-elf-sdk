@@ -125,14 +125,49 @@ scripts; the strict source inventory treated them as new maintained files.
 The inventory now excludes only that transient lock suffix while still
 rejecting other unlisted files. A fresh local source extraction with a lock
 present passed source package creation, and an unrelated extra file was
-correctly rejected. The Linux installed package still needs a passing rerun.
+correctly rejected.
+
+## Checked-source host and CMS completion
+
+At SDK `f6dcb4702b5c51a1a43150943debecb4902c3dc8` and z/PDOS
+`930dbbc13119ab69d6b4ddc4f42e4d6edcf6fd59`, hosted run
+[37132921683](https://github.com/adesutherland/mainframe-elf-sdk/actions/runs/37132921683)
+passed all three jobs: the full Linux x64 source-built package and unpacked
+six-profile consumer, plus macOS and Linux ARM source-tool builds. The Linux
+candidate archive SHA-256 is
+`9932aae71a18b92469ab49042a93b90beaffa503b091d8f1f227a1d099f40e3b`.
+Its manifest records source-only inputs, all six profiles and the same
+source-built native TSO object hashes as the macOS package.
+
+The first committed macOS candidate passed its installed consumer, but a
+cross-host package comparison found that its copied TSO `native/entry.asm`
+files came from an older sysroot. We rebuilt all five macOS sysroots from the
+exact checked source and repackaged them. The corrected macOS candidate
+archive SHA-256 is
+`f78e53651f2755a8c3d6dc84c6e7985f4e73a29435e44b23be7214adabbed8b2`;
+its unpacked six-profile consumer passed. The three TSO entry source copies
+match the maintained assembly byte for byte. The source-package recipe now
+rejects a stale TSO entry source in any supplied sysroot.
+
+The Mainframe Operator transferred the earlier macOS candidate's CMS MODULEs
+through the shared tape procedure. CMS24 returned native RC 42 on VM/370 CE;
+CMS31 returned native RC 42 on z/VM 4.4 with temporary 256 MiB storage.
+Guest tape readback was byte-identical for both; the operator removed the
+test files, restored CMS31's original 64 MiB setting, logged off and released
+all acquired leases. The exact MODULE SHA-256 values were
+`0ae1e1b96fe0ea00e4b388c6cb826655f3dd4e65a031ce1d87d2725b2995b8c9`
+and `681dd9ab7b77e95deccbebcc4cbf5cba3bfddf55954482c7a36924ce6429aa30`.
+The corrected macOS package's installed consumer reproduced those MODULEs
+byte for byte. Its four simple TSO XMITs and three TSO31/64 file-smoke XMITs
+also match the corresponding z/OS 1.5 guest-tested bytes exactly. Private
+operator receipts are under
+`/Users/adrian/MainframeLab/private/sdk-elf-20261003/operator/`.
 
 ## Release limits
 
 The guest calls do not prove all selected z/OS 1.5 macro offsets, SVC linkage,
 dataset behavior or the full IARV64 surface. The `TCBFA` test
-in inherited PDPCLIB is not a designated IBM programming interface. No
-Linux installed package or clean-checkout build has passed for these changed
-native bytes. The source-only candidate is therefore
-reviewable but not a qualified 0.1.0 release. Windows remains the planned
-0.1.1 host stage.
+in inherited PDPCLIB is not a designated IBM programming interface. The
+selected 0.1.0 subset has host and guest evidence for the paths above; the
+release tag and asset publication still need separate approval. Windows
+remains the planned 0.1.1 host stage.

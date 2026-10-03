@@ -70,7 +70,11 @@ The
 [3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) and
 [TSO64 source entry checkpoint](updates/2026-10-03-tso64-source-entry.md)
 record the earlier sequence; the [source candidate checkpoint](updates/2026-10-03-sdk-source-candidate.md)
-records the new host result and guest evidence. A clean-checkout release build,
-Linux installed-package qualification and remaining service-path guest checks
-are open 0.1.0 gates. Windows remains
-the separately staged 0.1.1 host gate.
+records the new host result and guest evidence. Clean checked-source macOS
+arm64 and hosted Linux x64 builds have passed an unpacked six-profile
+consumer. The macOS CMS24/31 MODULEs returned 42 on VM/370 CE and z/VM 4.4;
+their bytes match the corrected macOS package. The source-built TSO31/64
+file transports also match the z/OS 1.5 guest-passing bytes. Other service
+paths remain outside the advertised 0.1.0 subset until individually
+qualified. The 0.1.0 tag and assets await separate publication approval.
+Windows remains the separately staged 0.1.1 host gate.

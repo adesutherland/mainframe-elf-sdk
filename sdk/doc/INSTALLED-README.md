@@ -1,4 +1,4 @@
-# Mainframe ELF SDK local package
+# Mainframe ELF SDK 0.1.0
 
 This directory is an installed cross SDK. The `host/gcc/` and
 `host/binutils/` directories contain the host programs; `sysroots/` separates
@@ -25,8 +25,9 @@ A package produced by `compiler_sdk_source_package.py` includes source-built
 Classic Assembler/Linker binaries and native TSO entry/service objects. Its
 installed consumer also links TSO24, TSO31 and two TSO64 native XMIT
 transports. Their checked IEBCOPY members are `SDKTS24`, `SDKTS31`,
-`SDKTS64A` and `SDKTS64L`. The package manifest identifies it as a local
-candidate until the host and guest release gates pass.
+`SDKTS64A` and `SDKTS64L`. The package manifest identifies the version and
+build inputs. Host and guest qualification is recorded separately from the
+package manifest.
 
 `notices/` contains the SDK licence scope and the z/PDOS Classic Assembler,
 Classic Linker and PDPCLIB component notices. Each sysroot also carries its

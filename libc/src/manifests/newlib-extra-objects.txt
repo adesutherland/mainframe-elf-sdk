@@ -1,0 +1,11 @@
+libc/stdio/libc_a-funopen.o
+libc/stdio/libc_a-fgets.o
+libc/stdio/libc_a-puts.o
+libc/stdio/libc_a-perror.o
+libc/stdio/libc_a-setvbuf.o
+libc/stdlib/libc_a-atexit.o
+libc/stdlib/libc_a-__atexit.o
+libc/stdlib/libc_a-getenv.o
+libc/stdlib/libc_a-getenv_r.o
+libc/string/libc_a-strspn.o
+libc/string/libc_a-strcspn.o

@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "name": "tso-zos24-v1",
+  "status": "in-development",
+  "object_identity": "MLAB1;isa=s370-int1;addr=24;abi=s390-ilp32-r1-v1;chars=utf8;svc=mvs24-native1;profile=tso-zos24-v1",
+  "instruction_contract": {
+    "id": "s370-int1",
+    "compiler": "maintained GCC 16.2, conservative integer lowering and software float",
+    "encoder": "GNU binutils 2.47, -m31 -mesa",
+    "checker": "sdk/src/host/s370_check.c",
+    "native_service_glue": "z/OS 1.3 HLASM/PDPCLIB, separately audited"
+  },
+  "abi": {
+    "id": "s390-ilp32-r1-v1",
+    "byte_order": "big",
+    "int_long_pointer_bits": 32,
+    "long_long_bits": 64,
+    "stack_alignment": 8,
+    "caller_area_bytes": 96
+  },
+  "formats": {
+    "objects": "ELF32 big-endian EM_S390",
+    "identity_section": ".lab.profile",
+    "relocations": ["R_390_32"],
+    "load": "native z/OS binder load-library member, AMODE24/RMODE24"
+  },
+  "compatibility": {"rule": "exact object_identity only", "other_profiles": []},
+  "exclusions": ["MVS 3.8 service compatibility", "AMODE31 or AMODE64", "reentrant or shared deployment", "complete C/newlib qualification"]
+}

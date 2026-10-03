@@ -40,14 +40,14 @@ jobs:
             python3 patch xz-utils make
       - name: Extract and verify pinned source
         run: |
-          python3 tools/compiler_sdk.py extract --out "$RUNNER_TEMP/sdk-source"
+          python3 sdk/scripts/compiler_sdk.py extract --out "$RUNNER_TEMP/sdk-source"
           cd "$RUNNER_TEMP/sdk-source"
-          python3 tools/compiler_sdk.py prepare --cache "$RUNNER_TEMP/archives" \
+          python3 sdk/scripts/compiler_sdk.py prepare --cache "$RUNNER_TEMP/archives" \
             --work "$RUNNER_TEMP/sdk-build" --download
       - name: Build cross tools from source
         run: |
           cd "$RUNNER_TEMP/sdk-source"
-          python3 tools/compiler_sdk.py build-tools --work "$RUNNER_TEMP/sdk-build" \
+          python3 sdk/scripts/compiler_sdk.py build-tools --work "$RUNNER_TEMP/sdk-build" \
             --cc '${{ matrix.cc }}' --cxx '${{ matrix.cxx }}' --jobs 6
           cat "$RUNNER_TEMP/sdk-build/tools.json"
       - name: Historical profile object smoke
@@ -62,7 +62,7 @@ jobs:
             -ms370-profile=vm370-4381-v1 "$RUNNER_TEMP/sdk-ci-probe.c" \
             -o "$RUNNER_TEMP/sdk-ci-probe.s"
           cc -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror \
-            tools/s370_check.c -o "$RUNNER_TEMP/s370_check"
+            sdk/src/host/s370_check.c -o "$RUNNER_TEMP/s370_check"
           "$RUNNER_TEMP/s370_check" annotate vm370-4381-v1 \
             "$RUNNER_TEMP/sdk-ci-probe.s" "$RUNNER_TEMP/sdk-ci-probe.profile.s"
           "$RUNNER_TEMP/sdk-build/install/binutils/bin/s390-linux-gnu-as" \

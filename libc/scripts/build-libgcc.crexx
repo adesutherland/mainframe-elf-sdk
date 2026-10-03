@@ -1,0 +1,138 @@
+/* Build selected upstream GCC helpers with this SDK's checked source and tools.
+   Build through libgcc's normal configure/make interfaces.
+   No Linux startup/unwinder, OS services or complete libgcc is claimed. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  if args.0 <> 4 then do
+    say "usage: crexx -nokeep libc/scripts/build-libgcc.crexx --args PREPARED_WORK PROFILE wide|soft NEW_OUTPUT"
+    return 2
+  end
+  work = args.1
+  profile = args.2
+  kind = args.3
+  out = args.4
+  valid = profile = "tso-zos24-v1" | profile = "tso-zos31-v1" | profile = "tso-zos64-v1" | profile = "vm370-4381-v1" | profile = "cms20-esa31-v1"
+  if valid <> 1 then return 2
+  if kind <> "wide" & kind <> "soft" then return 2
+  level = "O2"
+  location = .string[]
+  address crexx "pwd" output location
+  root = strip(location.1)
+  if left(work,1) <> "/" then work = root || "/" || work
+  if left(out,1) <> "/" then out = root || "/" || out
+  receipt = work || "/tools.json"
+  address crexx "run test -f :receipt"
+  if rc <> 0 then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then return 2
+  gcc = work || "/obj/gcc/gcc"
+  source = work || "/source/gcc-16.2.0/libgcc"
+  bin = work || "/install/binutils/bin/s390-linux-gnu-"
+  ccpath = gcc || "/xgcc"
+  address crexx "run test -x :ccpath"
+  if rc <> 0 then return 2
+  base = out || "/obj"
+  checker = out || "/s370_check"
+  if profile = "tso-zos64-v1" then checker = out || "/tso64_check"
+  address crexx "mkdir -p :base"
+  if rc <> 0 then return rc
+  checker_source = "sdk/src/host/s370_check.c"
+  if profile = "tso-zos64-v1" then checker_source = "sdk/src/host/tso64_check.c"
+  address crexx "run cc -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror :checker_source -o :checker"
+  if rc <> 0 then return rc
+  cc = "CC=" || gcc || "/xgcc -B" || bin || " -B" || gcc || "/"
+  machine = "-mexperimental-s370 -m31 -mesa -msoft-float -mno-mvcle"
+  if profile = "vm370-4381-v1" | profile = "cms20-esa31-v1" then machine = "-ms370-profile=" || profile
+  if profile = "tso-zos64-v1" then machine = "-m64 -mzarch -march=z900 -msoft-float -mno-vx"
+  flags = "CFLAGS=-" || level || " " || machine || " -fno-pic -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -ffreestanding -ffunction-sections -fdata-sections -fno-merge-constants -save-temps=obj"
+  ar = "AR=" || bin || "ar"
+  nm = "NM=" || bin || "nm"
+  ranlib = "RANLIB=" || bin || "ranlib"
+  address crexx "mkdir -p :base :out"
+  if rc <> 0 then return rc
+  address crexx "cd :base"
+  if rc <> 0 then return rc
+  configure = source || "/configure"
+  target = "s390-linux-gnu"
+  if profile = "tso-zos64-v1" then target = "s390x-linux-gnu"
+  host_option = "--host=" || target
+  target_option = "--target=" || target
+  address crexx "run env :cc :flags :ar :nm :ranlib /bin/sh :configure :host_option :target_option --disable-multilib --disable-shared --disable-threads --disable-decimal-float"
+  if rc <> 0 then return rc
+  objects = .string[]
+  n = .int
+  name = .string
+  objects.1 = "_divdi3.o"
+  objects.2 = "_moddi3.o"
+  objects.3 = "_udivdi3.o"
+  objects.4 = "_umoddi3.o"
+  objects.5 = "_udiv_w_sdiv.o"
+  objects.6 = "_clz.o"
+  objects.7 = "_bswapsi2.o"
+  objects.8 = "_bswapdi2.o"
+  extra_make = .string[]
+  if kind = "soft" then do
+    call arraydrop objects
+    names = "pack unpack addsub mul div fpcmp_parts compare eq ne gt ge lt le unord si_to TARGET_to_si negate make thenan usi_to"
+    do precision = 1 to 2
+      suffix = "sf"
+      if precision = 2 then suffix = "df"
+      do n = 1 to words(names)
+        name = word(names,n)
+        if left(name,7) = "TARGET_" then name = suffix || substr(name,7)
+        else name = name || "_" || suffix
+        call arrayappend objects,"_" || name || ".o"
+      end
+    end
+    call arrayappend objects,"_sf_to_df.o"
+    call arrayappend objects,"_df_to_sf.o"
+    names = "floatundidf floatdidf fixdfdi fixunsdfdi floatundisf floatdisf fixsfdi fixunssfdi fixunsdfsi fixunssfsi clzsi2"
+    if profile = "tso-zos64-v1" then names = names || " clzdi2"
+    do n = 1 to words(names)
+      call arrayappend objects,"_" || word(names,n) || ".o"
+    end
+    extra_make.1 = "FPBIT=true"
+    extra_make.2 = "DPBIT=true"
+    /* Select generic software sources, excluding S/390 hardware conversion
+       overrides and Linux/shared/unwind fragments for this static subset. */
+    extra_make.3 = "tmake_file="
+  end
+  gcc_obj = "gcc_objdir=" || gcc
+  library_flags = "LIBGCC2_CFLAGS=-" || level || " -DIN_GCC -DIN_LIBGCC2 -fbuilding-libgcc -fno-stack-protector -Dinhibit_libc"
+  if kind = "soft" & profile = "tso-zos64-v1" then library_flags = library_flags || " -DLIBGCC2_UNITS_PER_WORD=4"
+  host_flags = "HOST_LIBGCC2_CFLAGS=-fno-pic -fno-pie"
+  no_exceptions = "LIB2_DIVMOD_EXCEPTION_FLAGS=-fno-exceptions -fno-non-call-exceptions"
+  address crexx "run make -j6 :gcc_obj :library_flags :host_flags :no_exceptions :extra_make[] :objects[]"
+  if rc <> 0 then return rc
+  address crexx "cd :root"
+  if rc <> 0 then return rc
+  members = .string[]
+  do i = 1 to objects.0
+    name = left(objects[i],length(objects[i])-2)
+    asm = base || "/" || name || ".s"
+    obj = out || "/" || objects[i]
+    ranges = out || "/" || name || ".ranges.s"
+    if profile = "tso-zos64-v1" then address crexx "run :checker stamp :asm :ranges"
+    else do
+      address crexx "run crexx -nokeep sdk/scripts/audit_s370.crexx --args :asm --allow-data-only"
+      if rc <> 0 then return rc
+      address crexx "run :checker annotate :profile :asm :ranges"
+    end
+    if rc <> 0 then return rc
+    as_tool = bin || "as"
+    if profile = "tso-zos64-v1" then address crexx "run :as_tool -L -m64 -march=z900 :ranges -o :obj"
+    else address crexx "run :as_tool -L -m31 -mesa :ranges -o :obj"
+    if rc <> 0 then return rc
+    call arrayappend members,obj
+  end
+  archive = out || "/libgcc-" || kind || ".a"
+  ar_tool = bin || "ar"
+  address crexx "run :ar_tool rcsD :archive :members[]"
+  if rc <> 0 then return rc
+  if profile = "tso-zos64-v1" then address crexx "run :checker input :archive"
+  else address crexx "run :checker input :profile :archive"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :ccpath :archive libc/scripts/build-libgcc.crexx"
+  return rc

@@ -1,0 +1,117 @@
+/* Build the maintained CMS application adapter and startup from SDK source.
+   This creates ELF objects; guest execution remains a separate gate. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  i = .int
+  source = .string
+  ranges = .string
+  object = .string
+  if args.0 <> 4 then do
+    say "usage: crexx -nokeep libc/scripts/build-cms-adapters.crexx --args PREPARED_WORK PROFILE CORE_BUILD NEW_OUTPUT"
+    return 2
+  end
+  work = args.1
+  profile = args.2
+  core = args.3
+  out = args.4
+  if profile <> "vm370-4381-v1" & profile <> "cms20-esa31-v1" then return 2
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(work,1) <> "/" then work = root || "/" || work
+  if left(core,1) <> "/" then core = root || "/" || core
+  if left(out,1) <> "/" then out = root || "/" || out
+  receipt = work || "/tools.json"
+  config = core || "/obj/Makefile"
+  address crexx "run test -f :receipt"
+  if rc <> 0 then return 2
+  address crexx "run test -f :config"
+  if rc <> 0 then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing CMS adapter build:" out
+    return 2
+  end
+  checked_dir = out || "/checked"
+  address crexx "mkdir -p :checked_dir"
+  if rc <> 0 then return rc
+  checker = core || "/s370_check"
+  compiler = work || "/install/gcc/bin/s390-linux-gnu-gcc"
+  as_tool = work || "/install/binutils/bin/s390-linux-gnu-as"
+  archiver = work || "/install/binutils/bin/s390-linux-gnu-ar"
+  adapter = "libc/src/adapters/cms"
+  headers = work || "/source/newlib-4.6.0.20260123/newlib/libc/include"
+  generated = core || "/obj"
+  heap = "-DLAB_CMS_HEAP_SIZE=262144"
+  if profile = "cms20-esa31-v1" then heap = "-DLAB_CMS_HEAP_SIZE=67108864"
+  flags = .string[]
+  flags.1 = "-S"
+  flags.2 = "-O2"
+  flags.3 = "-std=gnu99"
+  flags.4 = "-ms370-profile=" || profile
+  plain = "-fno-pic -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -fno-merge-constants -ffreestanding -ffunction-sections -fdata-sections"
+  do i = 1 to words(plain)
+    call arrayappend flags,word(plain,i)
+  end
+  call arrayappend flags,"-I" || generated
+  call arrayappend flags,"-I" || headers
+  call arrayappend flags,"-I" || adapter
+  call arrayappend flags,"-DLAB_CMS_APPLICATION"
+  call arrayappend flags,"-DCREXX_CMS_TEXT_IO"
+  call arrayappend flags,heap
+  c_names = "adapter newlib_syscalls arguments application files text text-codec signals arithmetic"
+  if profile = "cms20-esa31-v1" then c_names = c_names || " storage31"
+  members = .string[]
+  do i = 1 to words(c_names)
+    source = adapter || "/" || word(c_names,i) || ".c"
+    gas = out || "/cms-c" || i || ".s"
+    ranges = checked_dir || "/cms-c" || i || ".s"
+    object = checked_dir || "/cms-c" || i || ".o"
+    address crexx "run :compiler :flags[] :source -o :gas"
+    if rc <> 0 then return rc
+    address crexx "run crexx -nokeep sdk/scripts/audit_s370.crexx --args :gas --allow-data-only"
+    if rc <> 0 then return rc
+    address crexx "run :checker annotate :profile :gas :ranges"
+    if rc <> 0 then return rc
+    address crexx "run :as_tool -L -m31 -mesa :ranges -o :object"
+    if rc <> 0 then return rc
+    address crexx "run :checker input :profile :object"
+    if rc <> 0 then return rc
+    call arrayappend members,object
+  end
+  a_names = "svc202"
+  if profile = "cms20-esa31-v1" then a_names = "svc204 storage31"
+  do i = 1 to words(a_names)
+    source = adapter || "/" || word(a_names,i) || ".s"
+    ranges = checked_dir || "/cms-a" || i || ".s"
+    object = checked_dir || "/cms-a" || i || ".o"
+    address crexx "run :checker annotate :profile :source :ranges"
+    if rc <> 0 then return rc
+    address crexx "run :as_tool -L -m31 -mesa :ranges -o :object"
+    if rc <> 0 then return rc
+    address crexx "run :checker input :profile :object"
+    if rc <> 0 then return rc
+    call arrayappend members,object
+  end
+  archive = out || "/libcms.a"
+  address crexx "run :archiver rcsD :archive :members[]"
+  if rc <> 0 then return rc
+  address crexx "run :checker input :profile :archive"
+  if rc <> 0 then return rc
+  entry = adapter || "/application-entry.s"
+  if profile = "cms20-esa31-v1" then entry = adapter || "/application-entry31.s"
+  ranges = checked_dir || "/startup.s"
+  startup = out || "/startup.o"
+  address crexx "run :checker annotate :profile :entry :ranges"
+  if rc <> 0 then return rc
+  address crexx "run :as_tool -L -m31 -mesa :ranges -o :startup"
+  if rc <> 0 then return rc
+  address crexx "run :checker input :profile :startup"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :archive :startup libc/scripts/build-cms-adapters.crexx"
+  if rc <> 0 then return rc
+  say "CMS ADAPTER BUILD PASS:" profile members.0 "checked library members and startup."
+  return 0

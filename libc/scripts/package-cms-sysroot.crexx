@@ -1,0 +1,109 @@
+/* Install one checked CMS sysroot from source-built SDK objects and headers. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  i = .int
+  if args.0 <> 8 then do
+    say "usage: crexx -nokeep libc/scripts/package-cms-sysroot.crexx --args WORK PROFILE CORE EXTRAS WIDE SOFT ADAPTERS NEW_OUTPUT"
+    return 2
+  end
+  work = args.1
+  profile = args.2
+  core = args.3
+  extras = args.4
+  wide = args.5
+  soft = args.6
+  adapters = args.7
+  out = args.8
+  if profile <> "vm370-4381-v1" & profile <> "cms20-esa31-v1" then return 2
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(work,1) <> "/" then work = root || "/" || work
+  if left(core,1) <> "/" then core = root || "/" || core
+  if left(extras,1) <> "/" then extras = root || "/" || extras
+  if left(wide,1) <> "/" then wide = root || "/" || wide
+  if left(soft,1) <> "/" then soft = root || "/" || soft
+  if left(adapters,1) <> "/" then adapters = root || "/" || adapters
+  if left(out,1) <> "/" then out = root || "/" || out
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing CMS sysroot:" out
+    return 2
+  end
+  files = .string[]
+  files.1 = core || "/libnewlib.a"
+  files.2 = extras || "/libextra.a"
+  files.3 = extras || "/libm-extra.a"
+  files.4 = wide || "/libgcc-wide.a"
+  files.5 = soft || "/libgcc-soft.a"
+  files.6 = adapters || "/libcms.a"
+  files.7 = adapters || "/startup.o"
+  checker = core || "/s370_check"
+  address crexx "run test -x :checker"
+  if rc <> 0 then return 2
+  do i = 1 to files.0
+    source = files[i]
+    address crexx "run test -f :source"
+    if rc <> 0 then return 2
+    address crexx "run :checker input :profile :source"
+    if rc <> 0 then return rc
+  end
+  include = out || "/include"
+  lib = out || "/lib"
+  notices = out || "/notices"
+  cmsinclude = include || "/cms"
+  address crexx "mkdir -p :include :lib :notices :cmsinclude"
+  if rc <> 0 then return rc
+  source = work || "/source/newlib-4.6.0.20260123/newlib/libc/include/."
+  address crexx "run cp -R :source :include"
+  if rc <> 0 then return rc
+  generated = core || "/obj"
+  do i = 1 to 2
+    name = word("newlib.h _newlib_version.h",i)
+    source = generated || "/" || name
+    target = include || "/" || name
+    address crexx "run cp :source :target"
+    if rc <> 0 then return rc
+  end
+  cms_headers = "adapter.h application.h files.h storage31.h text.h text-codec.h text1047.h characters.h dirent.h"
+  do i = 1 to words(cms_headers)
+    name = word(cms_headers,i)
+    source = "libc/src/adapters/cms/" || name
+    target = cmsinclude || "/" || name
+    address crexx "run cp :source :target"
+    if rc <> 0 then return rc
+  end
+  names = "libnewlib.a libextra.a libm-extra.a libgcc-wide.a libgcc-soft.a libcms.a"
+  do i = 1 to 6
+    source = files[i]
+    target = lib || "/" || word(names,i)
+    address crexx "run cp :source :target"
+    if rc <> 0 then return rc
+  end
+  source = files.7
+  target = out || "/startup.o"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = "sdk/src/profiles/" || profile || ".json"
+  target = out || "/profile.json"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = "libc/LICENSE"
+  target = notices || "/COPYING.NEWLIB"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = "compiler/LICENSE"
+  target = notices || "/COPYING3"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = work || "/source/gcc-16.2.0/COPYING.RUNTIME"
+  target = notices || "/COPYING.RUNTIME"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :files[] :source :target"
+  if rc <> 0 then return rc
+  say "CMS SYSROOT BUILD PASS:" profile "source-built libraries, startup and headers."
+  return 0

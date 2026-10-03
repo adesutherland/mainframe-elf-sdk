@@ -1,0 +1,112 @@
+/* Build selected extra and math members from a configured SDK newlib tree.
+   The core archive and native services are built by separate recipes. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  i = .int
+  group = .int
+  chosen = .string[]
+  if args.0 <> 4 then do
+    say "usage: crexx -nokeep libc/scripts/build-newlib-extras.crexx --args PREPARED_WORK PROFILE CORE_BUILD NEW_OUTPUT"
+    return 2
+  end
+  work = args.1
+  profile = args.2
+  core = args.3
+  out = args.4
+  valid = profile = "tso-zos24-v1" | profile = "tso-zos31-v1" | profile = "tso-zos64-v1" | profile = "vm370-4381-v1" | profile = "cms20-esa31-v1"
+  if valid <> 1 then return 2
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(work,1) <> "/" then work = root || "/" || work
+  if left(core,1) <> "/" then core = root || "/" || core
+  if left(out,1) <> "/" then out = root || "/" || out
+  receipt = work || "/tools.json"
+  config = core || "/obj/Makefile"
+  library = core || "/libnewlib.a"
+  address crexx "run test -f :receipt"
+  if rc <> 0 then return 2
+  address crexx "run test -f :config"
+  if rc <> 0 then return 2
+  address crexx "run test -f :library"
+  if rc <> 0 then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing extra library build:" out
+    return 2
+  end
+  checked_dir = out || "/checked"
+  address crexx "mkdir -p :checked_dir"
+  if rc <> 0 then return rc
+  checker = core || "/s370_check"
+  if profile = "tso-zos64-v1" then checker = core || "/tso64_check"
+  address crexx "run test -x :checker"
+  if rc <> 0 then return 2
+  bin = work || "/install/binutils/bin/s390-linux-gnu-"
+  extra = readlines("libc/src/manifests/newlib-core-extra-objects.txt")
+  math = readlines("libc/src/manifests/newlib-math-objects.txt")
+  targets = .string[]
+  do i = 1 to extra.0
+    call arrayappend targets,extra[i]
+  end
+  do i = 1 to math.0
+    call arrayappend targets,math[i]
+  end
+  obj = core || "/obj"
+  address crexx "cd :obj"
+  if rc <> 0 then return rc
+  address crexx "run make -j6 :targets[]"
+  if rc <> 0 then return rc
+  address crexx "cd :root"
+  if rc <> 0 then return rc
+  do group = 1 to 2
+    if group = 1 then do
+      chosen = extra
+      library = out || "/libextra.a"
+    end
+    else do
+      chosen = math
+      library = out || "/libm-extra.a"
+    end
+    objects = .string[]
+    do i = 1 to chosen.0
+      gas = obj || "/" || left(chosen[i],length(chosen[i])-2) || ".s"
+      ranges = checked_dir || "/g" || group || "m" || i || ".s"
+      object = checked_dir || "/g" || group || "m" || i || ".o"
+      if profile = "tso-zos64-v1" then do
+        address crexx "run :checker stamp :gas :ranges"
+      end
+      else do
+        address crexx "run crexx -nokeep sdk/scripts/audit_s370.crexx --args :gas --allow-data-only"
+        if rc <> 0 then return rc
+        address crexx "run :checker annotate :profile :gas :ranges"
+      end
+      if rc <> 0 then return rc
+      as_tool = bin || "as"
+      if profile = "tso-zos64-v1" then do
+        address crexx "run :as_tool -L -m64 -march=z900 :ranges -o :object"
+        if rc <> 0 then return rc
+        address crexx "run :checker input :object"
+      end
+      else do
+        address crexx "run :as_tool -L -m31 -mesa :ranges -o :object"
+        if rc <> 0 then return rc
+        address crexx "run :checker input :profile :object"
+      end
+      if rc <> 0 then return rc
+      call arrayappend objects,object
+    end
+    archiver = bin || "ar"
+    address crexx "run :archiver rcsD :library :objects[]"
+    if rc <> 0 then return rc
+    if profile = "tso-zos64-v1" then address crexx "run :checker input :library"
+    else address crexx "run :checker input :profile :library"
+    if rc <> 0 then return rc
+    address crexx "run shasum -a 256 :library"
+    if rc <> 0 then return rc
+  end
+  say "NEWLIB EXTRA BUILD PASS:" profile extra.0 "extra and" math.0 "math members."
+  return 0

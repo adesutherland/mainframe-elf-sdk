@@ -1,0 +1,44 @@
+/* Build the source-owned TSO24 and TSO31 classic entry objects.
+   The supplied assembler must be built from maintained z/PDOS source.
+   PDPCLIB service objects and guest execution remain separate gates. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  if args.0 <> 2 then do
+    say "usage: crexx -nokeep libc/scripts/build-tso-entries.crexx --args CLASSIC_AS NEW_OUTPUT"
+    return 2
+  end
+  as_tool = args.1
+  out = args.2
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(as_tool,1) <> "/" then as_tool = root || "/" || as_tool
+  if left(out,1) <> "/" then out = root || "/" || out
+  address crexx "run test -x :as_tool"
+  if rc <> 0 then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing native entry output:" out
+    return 2
+  end
+  address crexx "mkdir -p :out"
+  if rc <> 0 then return rc
+  entry24 = out || "/tso24-entry.obj"
+  entry31 = out || "/tso31-any-entry.obj"
+  receipt24 = out || "/tso24-check.json"
+  receipt31 = out || "/tso31-check.json"
+  address crexx "run :as_tool --profile z900 libc/src/adapters/tso/entry24.asm :entry24"
+  if rc <> 0 then return rc
+  address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 24 --entry :entry24 --out :receipt24"
+  if rc <> 0 then return rc
+  address crexx "run :as_tool --profile z900 libc/src/adapters/tso/entry31-any.asm :entry31"
+  if rc <> 0 then return rc
+  address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 31 --entry :entry31 --out :receipt31"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :as_tool :entry24 :entry31 libc/scripts/build-tso-entries.crexx"
+  if rc <> 0 then return rc
+  say "TSO24 and TSO31 source entry object build PASS; native services and guest checks remain open."
+  return 0

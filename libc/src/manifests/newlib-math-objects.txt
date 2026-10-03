@@ -1,0 +1,8 @@
+libm/math/libm_a-s_sin.o
+libm/math/libm_a-s_cos.o
+libm/math/libm_a-k_sin.o
+libm/math/libm_a-k_cos.o
+libm/math/libm_a-e_rem_pio2.o
+libm/math/libm_a-k_rem_pio2.o
+libm/math/libm_a-e_sqrt.o
+libm/math/libm_a-w_sqrt.o

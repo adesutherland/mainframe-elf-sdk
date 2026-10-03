@@ -1,0 +1,61 @@
+/* Host preprocessor check of actual CMS/TSO syscall defaults and overrides.
+   ABS_SDK ABS_NEWLIB_INCLUDE ABS_NEWLIB_GENERATED ABS_OUTPUT [ABS_CC]. */
+options levelb
+import rxfnsb
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 < 4 | args.0 > 5 then return 2
+  sdk = args.1
+  include = args.2
+  generated = args.3
+  output = args.4
+  compiler = "/usr/bin/clang"
+  if args.0 = 5 then compiler = args.5
+  do i = 1 to args.0
+    if left(args[i],1) <> "/" then return 2
+  end
+  address crexx "run mkdir -p :output"
+  if rc <> 0 then return rc
+  fixture = sdk || "/tests/runtime/heap-defaults.c"
+  cms = sdk || "/libc/src/adapters/cms"
+  tso = sdk || "/libc/src/adapters/tso"
+  names = "cms24 cms31 cms31-override tso24 tso31 tso64 tso64-override tso31-override cms31-unaligned tso31-unaligned"
+  expected = "65536 67108864 25165824 4194304 67108864 134217728 65536 67108864 63 63"
+  do case = 1 to words(names)
+    flags = .string[]
+    result = .string[]
+    errors = .string[]
+    if case < 4 | case = 9 then do
+      call arrayappend flags,"-DLAB_TEST_CMS=1"
+      if case <> 1 then call arrayappend flags,"-D__MAINFRAME_LAB_CMS20_ESA31__=1"
+    end
+    else do
+      call arrayappend flags,"-DLAB_TEST_CMS=0"
+      if case = 6 | case = 7 then call arrayappend flags,"-D__LP64__=1"
+      else call arrayappend flags,"-U__LP64__"
+      if case = 4 then call arrayappend flags,"-DLAB_TSO24=1"
+    end
+    if case = 3 then call arrayappend flags,"-DLAB_CMS_HEAP_SIZE=25165824"
+    if case = 7 then call arrayappend flags,"-DLAB_TSO_HEAP_SIZE=65536"
+    if case = 8 then call arrayappend flags,"-DLAB_TSO_HEAP_SIZE=67108864"
+    if case = 9 then call arrayappend flags,"-DLAB_CMS_HEAP_SIZE=63"
+    if case = 10 then call arrayappend flags,"-DLAB_TSO_HEAP_SIZE=63"
+    call arrayappend flags,"-DLAB_EXPECT_HEAP=" || word(expected,case)
+    address crexx "run :compiler -E -P -o /dev/null -I :generated -I :include -I :cms -I :tso :flags[] :fixture" output result error errors
+    status = rc
+    text = ""
+    do row = 1 to errors.0
+      text = text || errors[row] || "0a"x
+    end
+    call writebinary output || "/" || word(names,case) || ".stderr",text as .binary
+    wanted = 0
+    if case > 8 then wanted = 1
+    if status <> wanted | (case > 8 & pos("doubleword aligned",text) = 0) then do
+      say "FAIL:" word(names,case) "status" status
+      return 1
+    end
+    say "PASS:" word(names,case)
+  end
+  say "SUMMARY: PASS=10 FAIL=0"
+  return 0

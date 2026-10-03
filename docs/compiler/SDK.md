@@ -15,7 +15,7 @@ relevant because PDOS tests unchanged TSO binaries.
 
 ## Included profiles
 
-Every object has one exact `MLAB1` identity from `toolchain/profiles/`. The
+Every object has one exact `MLAB1` identity from `sdk/src/profiles/`. The
 SDK installs six active profiles. The superseded `vmce-cms-kernel-v1` JSON is
 retained under `profiles/` for migration/rejection evidence and has no sysroot.
 
@@ -41,22 +41,23 @@ qualification. This public source tree contains no cREXX application source.
 only that allowlist and writes `SOURCE-MANIFEST.json` with SHA-256 for every
 file. It excludes private correspondence, manuals, IBM images, credentials,
 book drafts, unrelated experiments and downloaded vendor trees. The extracted
-tree carries editable GCC target source, generated recovery patches, profile
-definitions, checked runtime adapters, package tools and relevant source
-guides. It does not use the lab's Git history to reconstruct GCC.
+tree carries editable GCC target source, frozen historical recovery material,
+profile definitions, checked runtime adapters, package tools and relevant
+source guides. The producer reads the maintained source directly from
+`compiler/src/gcc16/` and does not read the frozen recovery material.
 
 ```sh
-python3 tools/compiler_sdk.py extract --out /tmp/mainframe-compiler-sdk-source
+python3 sdk/scripts/compiler_sdk.py extract --out /tmp/mainframe-compiler-sdk-source
 cd /tmp/mainframe-compiler-sdk-source
-python3 tools/compiler_sdk.py prepare --cache /tmp/sdk-archives \
+python3 sdk/scripts/compiler_sdk.py prepare --cache /tmp/sdk-archives \
   --work /tmp/sdk-work --download
-python3 tools/compiler_sdk.py build-tools --work /tmp/sdk-work
+python3 sdk/scripts/compiler_sdk.py build-tools --work /tmp/sdk-work
 ```
 
 `prepare` checks the official GCC 16.2.0, GNU binutils 2.47 and newlib
-4.6.0.20260123 archives against locked SHA-256, applies the nineteen ordered
-GCC recovery patches and the newlib configuration patch, then checks every
-selected GCC source file against the maintained editable package. It refuses
+4.6.0.20260123 archives against locked SHA-256, checks the selected pristine
+GCC files, then copies maintained compiler and newlib files from their
+respective `src/` trees. It refuses
 an existing work root. The cache may instead contain read-only checked
 archives. `build-tools` builds and installs binutils and C-only GCC from that
 fresh source. It does not build GCC inside historical CMS or select a new
@@ -66,32 +67,42 @@ options and separate non-Linux services.
 On Apple Silicon macOS, the current host prerequisites are Homebrew `gcc-16`,
 `g++-16`, GMP, MPFR, MPC and ISL; Python 3.12+, make, patch and common archive
 tools are also needed. On Linux, install the corresponding development
-packages and a working host GCC/G++. A matching host cREXX is a separate
-prerequisite only for the laboratory's external cREXX application consumer.
+packages and a working host GCC/G++. A host cREXX executable is also needed
+for the selected runtime and sysroot recipes in `libc/scripts/` and for the
+laboratory's external cREXX application consumer.
 A target RXC or RXVM does not bootstrap this SDK.
 
 ## Runtime/sysroot packaging
 
-The present package assembler accepts the separately qualified CMS24, CMS31
+The maintained recipes in `libc/scripts/` build selected newlib, math and
+GCC helper archives for all five application profiles. They also build the
+CMS adapters and startup and assemble five checked C sysroots. On 3 October
+2026, the Mac host route passed all five source-built C consumers: CMS24/31
+MODULEs and TSO24/31/64 ELF decks. The freestanding `vmkernel` component
+also compiled and exported. These local results are described in the dated
+source-build report. Classic Assembler now builds checked TSO24 and TSO31
+entry objects from maintained source. The TSO64 entry, PDPCLIB service
+objects, installed package, Linux and guest checks are open.
+
+The older bootstrap package assembler accepts the separately qualified CMS24, CMS31
 and three-profile MVS/TSO newlib archives as **checked bootstrap inputs**.
-Their exact archive hashes are pinned in `tools/compiler_sdk_package.py`. It
+Their exact archive hashes are pinned in `sdk/scripts/compiler_sdk_package.py`. It
 copies each profile's generated headers, static archives, startup and native
 source into a separate sysroot, installs the fresh host compiler/binutils and
 host checkers/exporters, and writes `SDK-MANIFEST.json` with per-file hashes,
 source/runtime identities and supported actions. The package is a deterministic
 local tarball. An independent consumer can unpack it elsewhere and verify
 every installed file without the lab checkout or producer build directory.
-The TSO31/64 XMIT route requires a separately built and checked PDLD executable;
-the SDK carries its shared source/patches and unload helper, but does not install
-PDLD or claim an end-to-end XMIT action without that prerequisite.
-The SDK's `patches/pdos390/0001-pdld-only-multi-csect.patch` contains only
+The TSO31/64 XMIT route requires a separately built and checked Classic Linker;
+the bootstrap package carries historical PDLD patches and an unload helper,
+but does not install the linker or claim an end-to-end XMIT action without it.
+The SDK's `sdk/archive/pdld/0001-pdld-only-multi-csect.patch` contains only
 PDLD writer changes. The original combined PDLD/PDOS loader patch and its
 kernel changes remain in Mainframe Lab. On the pinned PDOS source archive, the
 split yields identical PDLD source files and XMIT fixture bytes.
-The current packaging step does not claim that the runtime archives were
-rebuilt by this SDK producer; their source and prior qualification are
-retained in the input packages. Rebuilding all runtime archives from the new
-compiler is a distinct open source-rebuild gate.
+The bootstrap package step does not consume the newly source-built sysroots;
+its input archives retain their own older provenance. A source-only installer
+and independent installed consumer are still required for 0.1.0.
 
 The retained baseline native TSO entry and service objects are pinned bootstrap
 inputs. `TENTRY.obj` is SHA-256
@@ -103,19 +114,20 @@ The accepted RMODE ANY paths use lean service `PDPL34.obj` SHA-256
 the accepted TSO64 entry is `E64.obj` SHA-256
 `00088a98ea3392363464422b0bbc7bf054f5e92304fbdfa48fc6fc3a7b6a0df0`.
 These are distinct native inputs. The retained `tso-native-decks-v1` manifest
-names its baseline source hashes and ASMA90 job. `runtime/tso/entry31.asm`,
-`runtime/tso64/entry64-any.asm`, PDPCLIB `mvssupa.asm` at pinned PDOS
+names its baseline source hashes and ASMA90 job. `libc/src/adapters/tso/entry31.asm`,
+`libc/src/adapters/tso64/entry64-any.asm`, PDPCLIB `mvssupa.asm` at pinned PDOS
 revision `0fe81209e78d022b40301f86f97c7f4d3e406d0a`, its three visible
 patches, and `pdptop.mac` are their source trail. The SDK's
-[`0004-zos15-tso24-swareq.patch`](../../patches/pdpclib/0004-zos15-tso24-swareq.patch)
+[`0004-zos15-tso24-swareq.patch`](../../sdk/archive/pdpclib/0004-zos15-tso24-swareq.patch)
 extends the 0001-patched PDPCLIB source for z/OS 1.5 TSO24; the
-[`PDPCLIB patch guide`](../../patches/pdpclib/README.md) pins the input and
+[`PDPCLIB patch guide`](../../sdk/archive/pdpclib/README.md) pins the input and
 output hashes. The packaged baseline `T24SUP` is not that patched object;
 reassemble the patched source for z/OS 1.5 TSO24 dataset I/O. PDPCLIB's source notice
 credits Paul Edwards and contributors and states its own public-domain claim;
 that notice does not apply to all SDK material. The IBM macro library and
-ASMA90 are native/private prerequisites. No complete open-source regeneration
-for these decks has been demonstrated, and the private deck bundle's
+ASMA90 are native/private prerequisites of the retained bootstrap route.
+The new TSO24/31 entry object checks do not complete open-source regeneration
+of these decks, and the private deck bundle's
 redistribution rights require review before any public SDK release.
 
 The separate RMODE64 candidate pins the three cREXX low launchers
@@ -126,7 +138,7 @@ and `1a5bb86fe381b0ea1de813bc179fc9dcd3d6f38996b25a62daff8855cc9b85fe`.
 They came from a retained laboratory application launcher source with ASMA90
 and IBM macros; that app-specific source is outside this public extraction.
 The package keeps them in a distinct `native/high-launchers/` directory;
-`runtime/tso64/high-entry.s`, `tests/tso/image64-high.ld` and the high
+`libc/src/adapters/tso64/high-entry.s`, `sdk/src/layouts/tso64-high-image.ld` and the high
 exporter mode define the portable code side. No high launcher is substituted
 for the accepted RMODE ANY default.
 
@@ -141,7 +153,7 @@ separately accepted RMODE ANY native objects. It
 requires a completed `tools.json` from `build-tools`:
 
 ```sh
-python3 tools/compiler_sdk_package.py --work /tmp/sdk-work \
+python3 sdk/scripts/compiler_sdk_package.py --work /tmp/sdk-work \
   --cms24 /path/to/cms-newlib-vm370-4381-v1-closeout-20260924.tar.gz \
   --cms31 /path/to/cms-newlib-cms20-esa31-v1-closeout-20260924.tar.gz \
   --mvs /path/to/mvs-newlib-2026-09-24-v1.tar.gz \

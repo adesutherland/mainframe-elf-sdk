@@ -1,0 +1,13 @@
+libc/stdio/libc_a-fgets.o
+libc/stdio/libc_a-sscanf.o
+libc/stdio/libc_a-svfscanf.o
+libc/string/libc_a-strcasecmp.o
+libc/string/libc_a-strncasecmp.o
+libc/stdlib/libc_a-strtoul.o
+libc/stdlib/libc_a-strtoull.o
+libc/stdio/libc_a-svfiscanf.o
+libc/stdio/libc_a-sccl.o
+libc/stdlib/libc_a-mbrtowc.o
+libc/ctype/libc_a-iswspace.o
+libc/ctype/libc_a-iswspace_l.o
+libc/stdio/libc_a-fileno.o

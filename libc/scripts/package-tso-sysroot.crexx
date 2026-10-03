@@ -1,0 +1,106 @@
+/* Install one checked TSO C sysroot; Classic native decks are separate. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  i = .int
+  if args.0 <> 7 then do
+    say "usage: crexx -nokeep libc/scripts/package-tso-sysroot.crexx --args WORK PROFILE CORE EXTRAS WIDE SOFT NEW_OUTPUT"
+    return 2
+  end
+  work = args.1
+  profile = args.2
+  core = args.3
+  extras = args.4
+  wide = args.5
+  soft = args.6
+  out = args.7
+  valid = profile = "tso-zos24-v1" | profile = "tso-zos31-v1" | profile = "tso-zos64-v1"
+  if valid <> 1 then return 2
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(work,1) <> "/" then work = root || "/" || work
+  if left(core,1) <> "/" then core = root || "/" || core
+  if left(extras,1) <> "/" then extras = root || "/" || extras
+  if left(wide,1) <> "/" then wide = root || "/" || wide
+  if left(soft,1) <> "/" then soft = root || "/" || soft
+  if left(out,1) <> "/" then out = root || "/" || out
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing TSO sysroot:" out
+    return 2
+  end
+  files = .string[]
+  files.1 = core || "/libnewlib.a"
+  files.2 = extras || "/libextra.a"
+  files.3 = extras || "/libm-extra.a"
+  files.4 = wide || "/libgcc-wide.a"
+  files.5 = soft || "/libgcc-soft.a"
+  checker = core || "/s370_check"
+  if profile = "tso-zos64-v1" then checker = core || "/tso64_check"
+  address crexx "run test -x :checker"
+  if rc <> 0 then return 2
+  do i = 1 to files.0
+    source = files[i]
+    address crexx "run test -f :source"
+    if rc <> 0 then return 2
+    if profile = "tso-zos64-v1" then address crexx "run :checker input :source"
+    else address crexx "run :checker input :profile :source"
+    if rc <> 0 then return rc
+  end
+  include = out || "/include"
+  lib = out || "/lib"
+  notices = out || "/notices"
+  native = out || "/native"
+  address crexx "mkdir -p :include :lib :notices :native"
+  if rc <> 0 then return rc
+  source = work || "/source/newlib-4.6.0.20260123/newlib/libc/include/."
+  address crexx "run cp -R :source :include"
+  if rc <> 0 then return rc
+  generated = core || "/obj"
+  do i = 1 to 2
+    name = word("newlib.h _newlib_version.h",i)
+    source = generated || "/" || name
+    target = include || "/" || name
+    address crexx "run cp :source :target"
+    if rc <> 0 then return rc
+  end
+  source = "libc/src/adapters/mainframe_text.h"
+  target = include || "/mainframe_text.h"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  names = "libnewlib.a libextra.a libm-extra.a libgcc-wide.a libgcc-soft.a"
+  do i = 1 to 5
+    source = files[i]
+    target = lib || "/" || word(names,i)
+    address crexx "run cp :source :target"
+    if rc <> 0 then return rc
+  end
+  entry = "libc/src/adapters/tso/entry24.asm"
+  if profile = "tso-zos31-v1" then entry = "libc/src/adapters/tso/entry31-any.asm"
+  if profile = "tso-zos64-v1" then entry = "libc/src/adapters/tso64/entry64.asm"
+  target = native || "/entry.asm"
+  address crexx "run cp :entry :target"
+  if rc <> 0 then return rc
+  source = "sdk/src/profiles/" || profile || ".json"
+  target = out || "/profile.json"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = "libc/LICENSE"
+  target = notices || "/COPYING.NEWLIB"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = "compiler/LICENSE"
+  target = notices || "/COPYING3"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  source = work || "/source/gcc-16.2.0/COPYING.RUNTIME"
+  target = notices || "/COPYING.RUNTIME"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :files[] :entry"
+  if rc <> 0 then return rc
+  say "TSO C SYSROOT BUILD PASS:" profile "checked libraries and headers; native decks remain separate."
+  return 0

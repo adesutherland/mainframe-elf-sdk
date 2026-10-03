@@ -1,0 +1,105 @@
+/* Build the selected ILP32 newlib members from this SDK's checked source.
+   Native services, other libraries and guest execution are separate gates. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  i = .int
+  j = .int
+  found = .int
+  if args.0 <> 3 then do
+    say "usage: crexx -nokeep libc/scripts/build-newlib.crexx --args PREPARED_WORK PROFILE NEW_OUTPUT"
+    return 2
+  end
+  work = args.1
+  profile = args.2
+  out = args.3
+  valid = profile = "tso-zos24-v1" | profile = "tso-zos31-v1" | profile = "vm370-4381-v1" | profile = "cms20-esa31-v1"
+  if valid <> 1 then return 2
+  location = .string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root = strip(location.1)
+  if left(work,1) <> "/" then work = root || "/" || work
+  if left(out,1) <> "/" then out = root || "/" || out
+  ccpath = work || "/install/gcc/bin/s390-linux-gnu-gcc"
+  address crexx "run test -x :ccpath"
+  if rc <> 0 then return 2
+  receipt = work || "/tools.json"
+  address crexx "run test -f :receipt"
+  if rc <> 0 then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then do
+    say "Refusing existing newlib build:" out
+    return 2
+  end
+  source = work || "/source/newlib-4.6.0.20260123/newlib"
+  configure = source || "/configure"
+  headers = source || "/libc/include"
+  address crexx "run test -f :configure"
+  if rc <> 0 then return 2
+  obj = out || "/obj"
+  checked_dir = out || "/checked"
+  address crexx "mkdir -p :obj :checked_dir"
+  if rc <> 0 then return rc
+  checker = out || "/s370_check"
+  address crexx "run cc -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror sdk/src/host/s370_check.c -o :checker"
+  if rc <> 0 then return rc
+  bin = work || "/install/binutils/bin/s390-linux-gnu-"
+  gccdir = left(ccpath,lastpos("/",ccpath))
+  cc = "CC=" || ccpath || " -B" || bin || " -B" || gccdir
+  machine = "-mexperimental-s370 -m31 -mesa -msoft-float -mno-mvcle"
+  if profile = "vm370-4381-v1" | profile = "cms20-esa31-v1" then machine = "-ms370-profile=" || profile
+  cflags = "CFLAGS=-O2 " || machine || " -funsigned-char -fno-pic -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector -fno-merge-constants -ffreestanding -ffunction-sections -fdata-sections -save-temps=obj"
+  ar = "AR=" || bin || "ar"
+  ranlib = "RANLIB=" || bin || "ranlib"
+  includes = "CPPFLAGS=-I" || obj || " -I" || headers
+  members = readlines("libc/src/manifests/newlib-rxas-objects.txt")
+  extra = readlines("libc/src/manifests/newlib-extra-objects.txt")
+  do i = 1 to extra.0
+    call arrayappend members,extra[i]
+  end
+  if profile = "vm370-4381-v1" | profile = "cms20-esa31-v1" then do
+    cms = readlines("libc/src/manifests/newlib-rxvm-extra.txt")
+    do i = 1 to cms.0
+      found = 0
+      do j = 1 to members.0
+        if members[j] = cms[i] then found = 1
+      end
+      if found = 0 then call arrayappend members,cms[i]
+    end
+  end
+  address crexx "cd :obj"
+  if rc <> 0 then return rc
+  address crexx "run env :cc :cflags :includes :ar :ranlib /bin/sh :configure --host=s390-unknown-none --target=s390-unknown-none --disable-multilib --disable-newlib-supplied-syscalls --disable-newlib-multithread --enable-newlib-io-float --enable-newlib-io-c99-formats --enable-newlib-io-long-long --disable-newlib-io-long-double --enable-newlib-nano-malloc --disable-newlib-wide-orient --disable-newlib-fvwrite-in-streamio --disable-newlib-atexit-dynamic-alloc"
+  if rc <> 0 then return rc
+  address crexx "run make -j6 :members[]"
+  if rc <> 0 then return rc
+  address crexx "cd :root"
+  if rc <> 0 then return rc
+  objects = .string[]
+  do i = 1 to members.0
+    gas = obj || "/" || left(members[i],length(members[i])-2) || ".s"
+    ranges = checked_dir || "/nl" || i || ".s"
+    object = checked_dir || "/nl" || i || ".o"
+    address crexx "run crexx -nokeep sdk/scripts/audit_s370.crexx --args :gas --allow-data-only"
+    if rc <> 0 then return rc
+    address crexx "run :checker annotate :profile :gas :ranges"
+    if rc <> 0 then return rc
+    as_tool = bin || "as"
+    address crexx "run :as_tool -L -m31 -mesa :ranges -o :object"
+    if rc <> 0 then return rc
+    address crexx "run :checker input :profile :object"
+    if rc <> 0 then return rc
+    call arrayappend objects,object
+  end
+  library = out || "/libnewlib.a"
+  archiver = bin || "ar"
+  address crexx "run :archiver rcsD :library :objects[]"
+  if rc <> 0 then return rc
+  address crexx "run :checker input :profile :library"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 :ccpath :library libc/scripts/build-newlib.crexx libc/src/manifests/newlib-rxas-objects.txt libc/src/manifests/newlib-extra-objects.txt libc/src/manifests/newlib-rxvm-extra.txt"
+  if rc <> 0 then return rc
+  say "NEWLIB CORE BUILD PASS:" profile members.0 "checked members; adapters and guest services remain separate."
+  return 0

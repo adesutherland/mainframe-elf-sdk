@@ -1,80 +1,72 @@
-# Mainframe ELF SDK release plan
+# Release status, limits and next steps
 
-The first binary release is 0.1.0 for qualified macOS and Linux hosts.
-Windows follows as 0.1.1 after a native build and installed-package check on
-the Windows host. The 0.1.0 assets will make no Windows support claim.
+**0.1.0 was released on 3 October 2026 for macOS arm64 and Linux x64.**
+The [release page](https://github.com/adesutherland/mainframe-elf-sdk/releases/tag/v0.1.0)
+contains both archives, `SHA256SUMS`, the source revision and host qualification
+record. Windows remains planned for 0.1.1 after a native Windows build and
+installed-package qualification.
 
-The release build starts with checked upstream GCC, binutils and newlib source
-and maintained SDK and z/PDOS source. Ordinary host C/C++ tools and development
-libraries are prerequisites. No z/OS assembler, binder, IBM macro library,
-prebuilt target runtime archive or native object deck may be a build input for
-an SDK release asset. Guest execution is a separate qualification gate; it
-does not supply build artifacts.
+## What the milestone establishes
 
-## Required 0.1.0 gates
+The release was built from SDK revision
+`f5a57fec88fe38678663c7015261131875bdfcde`, checked GCC 16.2.0, GNU binutils
+2.47 and newlib 4.6.0.20260123 archives, and z/PDOS revision
+`930dbbc13119ab69d6b4ddc4f42e4d6edcf6fd59`. Its host build recipes use the
+pinned cREXX v1.0.0-beta.3 runtime.
 
-1. Give each maintained component one editable `src/` tree, a clear upstream
-   record and licence, a single backlog and build documentation. Optional
-   frozen archives are excluded from normal builds and required tests.
-2. Build GCC, GNU binutils, the selected newlib libraries, CMS/TSO adapters,
-   native entry and service objects, and host packagers from checked source.
-   Use z/PDOS `mf-classic-as` for classic native assembly and the maintained
-   linker where needed. Extend those tools in z/PDOS for demonstrated SDK
-   consumer gaps, with their own independent object checks.
-3. Build the six advertised profiles and their applicable final MODULE or
-   load-member transport from a fresh source tree. Run an installed consumer
-   outside the producer tree and check package identities and notices.
-4. Record exact source, tool, archive and output identities. Repeat affected
-   guest checks when changed bytes or contracts make old evidence inapplicable.
-5. Qualify each advertised host platform and inspect the complete distributable
-   before creating a release tag or publishing assets.
+The compiler, selected C libraries, adapters, native TSO objects and host
+packagers were built without a z/OS assembler, binder, IBM macro library or
+prebuilt target runtime archive. Both host packages passed an unpacked,
+six-profile consumer outside the producer tree, including four complete TSO
+XMIT links. The Linux release build is recorded in
+[run 37137522440](https://github.com/adesutherland/mainframe-elf-sdk/actions/runs/37137522440).
 
-The low RMODE64 launchers currently belong to a Mainframe Lab application
-consumer. Keep that application source outside the generic SDK. A generic
-SDK release must not ship those objects as opaque required inputs: either a
-source-built generic launcher is established and qualified, or the application
-HIGH route remains a separately documented consumer outside 0.1.0.
+| Output checked on a guest | Recorded result |
+| --- | --- |
+| CMS24 MODULE | Returned 42 on VM/370 Community Edition; transferred bytes read back identically |
+| CMS31 MODULE | Returned 42 on CMS 20 under z/VM 4.4, using temporary 256 MiB guest storage; transferred bytes read back identically |
+| TSO24, TSO31 and both TSO64 simple members | Restored and returned 42 on z/OS 1.5 |
+| TSO31 and both TSO64 file members | Sequential write/read, PDS member read and missing-DD handling passed on z/OS 1.5 |
 
-## Windows 0.1.1
+The corrected macOS package reproduced the guest-tested MODULE and TSO
+transport bytes. Linux passed its own source build and installed consumer;
+this record does not claim a separate Linux-output guest campaign. The
+[3 October checkpoint](updates/2026-10-03-sdk-source-candidate.md) preserves
+the intermediate failures, repairs, hashes and final comparisons. Its early
+“not yet released” statements describe the time of those experiments.
 
-On the Windows host, build native Windows executables from the same maintained
-source and checked upstream inputs, package the SDK, and run its installed
-consumer and failure controls. Record Windows-specific dependencies and
-qualification. The 0.1.1 release follows only after those gates pass.
+## Known limits
 
-## Current status
+| Area | 0.1.0 scope or outstanding issue |
+| --- | --- |
+| TSO24 files | Dataset I/O faults in above-the-line SWA lookup and is excluded. The simple entry/return path passed. |
+| TSO31/64 files | The qualified subset is sequential write/read and PDS read. The selected service bypasses inherited NOTE/TRKCALC positioning; FBS extend/positioning is excluded. |
+| Other native services | VSAM, IDCAMS and supervisor-mode switching are rejected by the selected source contract. Those rejection paths, dynamic allocation, command/prefix services and wider service behavior still need separate guest checks. |
+| Control-block dependencies | Inherited PDPCLIB uses a `TCBFA` test that is not a designated IBM programming interface. The recorded z/OS 1.5 paths do not establish portability to other systems. |
+| TSO64 code placement | Both shipped entry variants keep the image below 2 GiB. The separate application RMODE64/high-launcher route is excluded; modern z/OS high-code execution remains unverified. |
+| C and runtime coverage | Selected C/newlib, math and software-arithmetic support; no complete C99, libc, floating-point or POSIX conformance claim. |
+| CMS and kernel coverage | Modern z/CMS remains unqualified. `vmkernel` provides a component/export path, not a complete CMS/CP kernel or a 31/64-bit kernel ABI. |
+| Host platforms | Released packages are macOS arm64 and Linux x64. An ARM Linux source-tool CI job is not an ARM Linux SDK release. |
+| Descriptive metadata | Some profile JSON and manifest descriptions still reflect the bootstrap period; see [SDK-005](../sdk/doc/BACKLOG.md#sdk-005-profile-and-manifest-description-drift). |
+| File example result | A PDS failure branch shares the final success code. Require all three success messages and RC 42; see [SDK-006](../sdk/doc/BACKLOG.md#sdk-006-file-example-success-and-failure-share-a-return-code). The recorded guest runs include those messages. |
 
-This plan is approved direction, not a completed release. On Apple Silicon
-macOS, the direct-source producer builds GCC/binutils and all five selected C
-sysroots. Source-built host consumers compile, link and export CMS24/31
-MODULEs, TSO24/31/64 ELF decks and the `vmkernel` assembly component. The
-fuller CMS plain-C consumer also links and exports after correcting archive
-membership and the strict linker script.
+These limits are part of the release description. Application experiments,
+older bootstrap objects and broader z/PDOS source support do not silently
+expand the released subset.
 
-The existing package recipe remains a bootstrap route: it consumes pinned
-runtime archives and ASMA90-produced native decks. A separate source-input
-candidate route now installs all five source-built C sysroots, source-built
-host and Classic tools, and source-built TSO native entry and PDPCLIB service
-objects. Its installed consumer passed CMS24/31 MODULEs, TSO24/31/64 C decks,
-four complete native XMIT links, and the freestanding component on macOS.
-The TSO31/64 service file subset supports sequential write/read and PDS read;
-VSAM, IDCAMS and supervisor-mode switching are rejected by the selected
-service. All four source-built TSO transports restored and returned 42 for a
-simple C consumer on z/OS 1.5. TSO31 and both TSO64 entry modes passed the
-file smoke there. TSO24 dataset I/O faults during above-line SWA lookup and is
-outside the 0.1.0 file subset; its simple entry/return path passed. The
-selected file service bypasses inherited NOTE/TRKCALC positioning, so FBS
-extend is outside this subset. The complete maintained
-PDOS-profile PDPCLIB native source also assembles with source-owned PDOS service definitions.
-The
-[3 October native review](updates/2026-10-03-funhead-pdpclib-tso64.md) and
-[TSO64 source entry checkpoint](updates/2026-10-03-tso64-source-entry.md)
-record the earlier sequence; the [source candidate checkpoint](updates/2026-10-03-sdk-source-candidate.md)
-records the new host result and guest evidence. Clean checked-source macOS
-arm64 and hosted Linux x64 builds have passed an unpacked six-profile
-consumer. The macOS CMS24/31 MODULEs returned 42 on VM/370 CE and z/VM 4.4;
-their bytes match the corrected macOS package. The source-built TSO31/64
-file transports also match the z/OS 1.5 guest-passing bytes. Other service
-paths remain outside the advertised 0.1.0 subset until individually
-qualified. The 0.1.0 tag and assets await separate publication approval.
-Windows remains the separately staged 0.1.1 host gate.
+## Requirements for subsequent releases
+
+Keep one maintained source tree per component and preserve the component
+notices. Build the advertised profiles from checked source, record all input
+identities, and qualify an unpacked package on each advertised host. Changes
+to native bytes or service contracts require the affected guest checks;
+unchanged results can retain their existing evidence.
+
+For **Windows 0.1.1**, build native Windows executables from the same
+maintained inputs, package the SDK, run the installed consumer and failure
+controls on Windows, and document its dependencies before publication.
+
+Wider file services, modern-system qualification and a generic high-code
+launcher are separate work. Follow the [component backlogs](README.md#contributing)
+for their observations and acceptance criteria. A source commit, a passing
+host build, guest execution and a published release remain distinct milestones.

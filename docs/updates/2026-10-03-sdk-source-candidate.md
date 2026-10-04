@@ -1,5 +1,10 @@
 # Source-built SDK candidate checkpoint — 3 October 2026
 
+Reading this after publication: [0.1.0 was released later on 3 October](https://github.com/adesutherland/mainframe-elf-sdk/releases/tag/v0.1.0).
+The sequence below preserves the observations and open gates at each
+checkpoint. Use the [current release record](../RELEASE-PLAN.md) for the final
+host assets, guest scope and remaining limits.
+
 We have a local Apple Silicon macOS source-input SDK candidate with an
 installed consumer pass for all six advertised profiles. It is a host build
 and transport result. The changes in the SDK and z/PDOS `develop` checkouts

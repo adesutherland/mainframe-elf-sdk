@@ -1,127 +1,120 @@
 # Mainframe ELF SDK
 
-I want to make it practical to build CMS and TSO programs on an everyday
-computer, starting with source, producing checked target objects and packaging
-them for a named mainframe environment. The SDK uses GCC, binutils and newlib
-with explicit historical machine profiles. Its source-build goal needs no
-z/OS assembler, binder or prebuilt target runtime object.
+**Build C programs for CMS and TSO on a Mac or Linux computer.** Mainframe
+ELF SDK brings a modern GCC compiler, a selected C runtime and mainframe
+packaging tools together. It produces CMS MODULEs and TSO load-library
+transports without using a proprietary mainframe compiler, assembler or binder
+in the build.
 
-The component names are Mainframe ELF C (`mf-elf-cc`), Mainframe ELF Assembler
-(`mf-elf-as`) and Mainframe ELF Packager (`mf-elf-pack`). These are the agreed
-public interface names; the commands below describe the existing implementation.
+CMS is the interactive environment on VM systems; TSO is the interactive
+environment on MVS and z/OS. A CMS MODULE is a runnable program. A TSO XMIT
+file is a transport that can be restored into a native program library.
 
-This source tree reconstructs a GCC 16.2.0 and GNU binutils 2.47 C
-cross-toolchain for historical CMS, TSO and freestanding kernel components.
-It is the compiler project extracted from Mainframe Lab, with its own reviewed
-source inventory. cREXX is an external application consumer of selected
-profiles. The legacy GCCCMS/GCCMVS compiler remains useful in the lab; this
-project does not replace it or change the production cREXX pipeline.
+I want mainframe development to be accessible from an ordinary computer,
+with source you can inspect and rebuild. The first release completes that
+build path for a small, explicitly qualified set of environments. It is an
+early SDK for experimentation and porting, with more runtime and system
+coverage still to do.
 
-The supported profile identities are `vm370-4381-v1`, `cms20-esa31-v1`,
-`tso-zos24-v1`, `tso-zos31-v1`, `tso-zos64-v1`, and the freestanding `vmkernel`.
-The superseded `vmce-cms-kernel-v1` definition remains as historical migration
-evidence, without an enabled sysroot. A dedicated PDOS application target and
-runtime are outside this SDK. Shared PDLD/XMIT helpers are included because
-PDOS tests unchanged TSO binaries.
+[Download 0.1.0](https://github.com/adesutherland/mainframe-elf-sdk/releases/tag/v0.1.0)
+· [Architecture and profiles](docs/compiler/SDK.md)
+· [Build from source](sdk/README.md)
+· [Licensing and provenance](LICENSING.md)
+· [Documentation](docs/README.md)
 
-## Source ownership
+## What is available
 
-| Component | Maintained source | Foundation |
+Version **0.1.0**, released on 3 October 2026, has **macOS arm64** and
+**Linux x64** packages. Windows is planned for 0.1.1. The SDK runs on the
+host computer; the resulting program runs in the selected mainframe
+environment. No operating system image or emulator is included.
+
+| Target | What the SDK produces | What has been demonstrated for 0.1.0 |
 | --- | --- | --- |
-| [Compiler](compiler/README.md) | `compiler/src/gcc16/` | Checked official GCC 16.2.0 archive; the old patch series is frozen in `compiler/archive/` |
-| [C library](libc/README.md) | `libc/src/newlib/` and `libc/src/adapters/` | Checked official newlib 4.6.0.20260123 archive, with original notices |
-| [SDK host tools](sdk/README.md) | `sdk/src/` for checkers, exporters, layouts, profiles and the kernel component; `sdk/scripts/` for recipes | Original Mainframe Lab work under MIT; unchanged official binutils 2.47 source is checked and built by the producer |
+| CMS24 | A fixed-origin CMS MODULE for the historical 24-bit environment | A small C program returned 42 on VM/370 Community Edition |
+| CMS31 | A relocatable, 31-bit CMS MODULE | A small C program returned 42 on CMS 20 under z/VM 4.4 |
+| TSO24 | An AMODE24/RMODE24 load member in an XMIT transport | Entry and return on z/OS 1.5; dataset I/O is excluded |
+| TSO31 | An AMODE31/RMODE ANY load member in an XMIT transport | Entry and return, sequential file write/read, PDS member read and missing-DD handling on z/OS 1.5 |
+| TSO64 | 64-bit C with a below-2-GiB load member; two native entry variants | The same selected file operations on z/OS 1.5 through both entries |
+| `vmkernel` | A freestanding C component exported as native assembler source | Host compilation and export of a CMS storage component; no complete kernel build is supplied |
 
-Optional `archive/` directories are frozen provenance and recovery records.
-They remain in Git but are excluded from the release source extraction and
-its build inputs.
-We maintain current code in each component's `src/` tree and use Git history
-for previous versions. The separate [z/PDOS repository](https://github.com/adesutherland/z-pdos)
-owns the Mainframe Classic Assembler, Linker and PDPCLIB. Its maintained source
-is a cross-platform input to the complete native SDK path.
+Both host packages passed the installed build checks for all six profiles.
+The [release record](docs/RELEASE-PLAN.md) distinguishes those host checks
+from the exact outputs executed on guests. These results do not establish
+complete C99 or newlib coverage, compatibility with every CMS or z/OS version,
+or modern z/OS execution of code above 2 GiB.
 
-See [the documentation index](docs/README.md) and [SDK guide](docs/compiler/SDK.md) for each profile's C, ISA, runtime,
-addressing, packaging and qualification limits. [The release plan](docs/RELEASE-PLAN.md)
-records the source-build and platform gates. `sdk/source-files.txt` is the
-reviewed source list. `SOURCE-MANIFEST.json` hashes every source file. The
-upstream source archives are downloaded or supplied from a checked cache;
-their URLs and SHA-256 locks are in `sdk/scripts/compiler_sdk.py`.
+## How it fits together
 
-To reconstruct the host tools from this standalone tree:
+The SDK uses GCC 16.2.0 with maintained mainframe target changes, GNU
+binutils 2.47 and selected newlib 4.6.0.20260123 routines. **ELF** (Executable
+and Linkable Format) is the object format used between compilation and
+packaging; CMS and TSO receive their own native formats.
 
-```sh
-python3 sdk/scripts/compiler_sdk.py prepare --cache /path/to/archive-cache \
-  --work /path/to/new-sdk-work --download
-python3 sdk/scripts/compiler_sdk.py build-tools --work /path/to/new-sdk-work
+```text
+C source + a chosen profile
+          |
+    GCC and GNU binutils
+          |
+    checked ELF + C runtime
+          |
+    SDK format exporters
+          +---- CMS: MODULE
+          +---- TSO: native object deck
+                      + entry and file-service objects
+                      + Classic Linker -> XMIT -> load-library member
 ```
 
-On Apple Silicon macOS, install Homebrew `gcc`, GMP, MPFR, MPC and ISL (the
-producer uses `gcc-16`/`g++-16`). On Linux, install GCC/G++, GMP, MPFR, MPC,
-ISL, make, patch, Python 3.12+ and archive utilities. `prepare` refuses an
-existing output root, verifies the upstream archives, and copies the checked
-maintained GCC files from [`compiler/src/gcc16/`](compiler/src/gcc16/) into its
-generated build tree. `build-tools` installs a fresh C cross-compiler and
-binutils into that root. Edit GCC source directly under `compiler/src/gcc16/`;
-Git history preserves changes. The initial recovery series is frozen reference
-material and is not used by the build. The selected newlib configuration is
-maintained directly under [`libc/src/newlib/`](libc/src/newlib/).
-The selected runtime recipes under `libc/scripts/` also need a host cREXX
-executable. They build checked libraries for the five application profiles;
-the CMS recipes also build checked adapters and startup objects. The
-`build-tso-entries.crexx` recipe uses a source-built z/PDOS Classic Assembler
-to produce checked TSO24, TSO31 and both TSO64 native entry objects.
+We developed the historical GCC target changes, CMS/TSO runtime adapters,
+profile checks and native-format exporters. The separate
+[z/PDOS project](https://github.com/adesutherland/z-pdos) supplies our original
+**Mainframe Classic Assembler**, the **PDLD-derived Classic Linker**, and a
+selected native file-service layer from **Paul Edwards's PDPCLIB**. Newlib
+provides the C library; PDPCLIB supplies the TSO dataset services beneath it.
+The SDK does not include the z/PDOS operating system.
 
-The `sdk/scripts/build-tso-native.crexx` recipe adds the maintained z/PDOS
-PDPCLIB TSO file service and links source-built C decks to complete host XMIT
-transports. The file profile supports sequential and partitioned datasets and
-explicitly rejects VSAM. `sdk/scripts/compiler_sdk_source_package.py`
-installs the source-built sysroots, host tools and native objects. The macOS
-arm64 and Linux x64 builds both passed an independent six-profile installed
-consumer, including four native TSO XMIT links. The macOS CMS24/31 MODULEs
-returned 42 on VM/370 CE and z/VM 4.4. All four simple TSO C members
-restored and returned 42 on z/OS 1.5. TSO31 and both TSO64 entry modes passed
-sequential write/read and PDS read there; TSO24 dataset I/O remains outside
-the 0.1.0 file subset. The
-[source candidate checkpoint](docs/updates/2026-10-03-sdk-source-candidate.md)
-records the exact host and guest evidence and remaining service limits.
+A **profile** ties together the allowed instructions, C calling convention,
+address width, operating-system services and output format. For example,
+CMS31 and TSO31 both use 32-bit C pointers, but their service calls and native
+packages differ. The SDK checks an identity in each ELF object to prevent
+those runtimes from being mixed. The
+[architecture guide](docs/compiler/SDK.md) explains that check and the
+difference between addressing mode and code placement.
 
-The older `sdk/scripts/compiler_sdk_package.py` can assemble a versioned local SDK from
-the fresh host tools and exact, hash-checked CMS24, CMS31 and MVS/TSO runtime
-archives. The runtime archives and ASMA90-produced native TSO objects are
-**pinned bootstrap inputs**, not outputs of this fresh compiler build. Obtain
-them only with their original notices and verified hashes. The package
-command's explicit options name each input. This retained bootstrap route is
-not a source-only 0.1.0 release and runs only from the checkout that retains
-the frozen archives. Its installed SDK carries its own
-tools, profile-specific sysroots, manifests and a six-profile consumer check:
+## Start with a release package
+
+Download the archive for your host and `SHA256SUMS` from the
+[0.1.0 release](https://github.com/adesutherland/mainframe-elf-sdk/releases/tag/v0.1.0).
+Verify the archive against that file, then unpack it into a new directory.
+Use Python 3.12 or later to run the included example builder, replacing the
+paths below with your unpacked SDK and a new output directory:
 
 ```sh
-python3 sdk/scripts/compiler_sdk_package.py --help
-python3 /path/to/installed-sdk/tools/compiler_sdk_consume.py \
-  --sdk /path/to/installed-sdk --out /path/to/new-consumer-output
+python3 /path/to/sdk/tools/compiler_sdk_consume.py \
+  --sdk /path/to/sdk --profile tso-zos31-v1 \
+  --out /path/to/new-example
 ```
 
-The consumer runs outside the producer tree. It verifies every installed
-file, then compiles, links and packages a small C program for each application
-profile and a real freestanding CMS storage component for `vmkernel`. The
-TSO64 check also emits a separate RMODE64 high-code deck and checks its entry,
-stack and relocations against three pinned low launcher objects. It does
-not by itself prove native guest execution or the complete RXC/RXAS/RXVM
-application chain. Existing guest results apply only to their recorded bytes
-and contracts. The z/OS 1.5 RMODE ANY TSO64 route is accepted; the separate
-low-launcher/RMODE64 high route has bounded PDOS execution and remains
-unverified on modern z/OS.
+This checks the installed file hashes, compiles a small C program and creates
+`tso-zos31-v1/SDKTS31.XMI` beneath the output directory. It does not connect
+to a mainframe. The [usage guide](sdk/doc/INSTALLED-README.md) explains the
+other outputs and how to supply your own TSO C file. Building the SDK itself
+is a separate [source workflow](sdk/README.md).
 
-The separate laboratory cREXX 0017 consumer checks RXAS, RXVM and RXC against
-this SDK using an external frozen cREXX source tree, matching host cREXX and
-hash-pinned application glue. That harness, the application source and the
-glue are outside this public compiler project. The public source tree contains
-only generic compiler/runtime/packager code and generic C profile checks.
+## Open build tools, explicit component licences
 
-Original Mainframe Lab code and documentation are [MIT licensed](LICENSE);
-inherited GCC, binutils, newlib, PDOS/PDLD and PDPCLIB material retains its
-own terms. Read [licensing and provenance](LICENSING.md) before distributing a
-package. The source producer has no required proprietary commercial licence.
-The source-built native route removes prebuilt objects from the local
-candidate. The CI definition builds source tools on macOS and Linux; it does
-not publish artifacts or qualify the changed native inputs in a guest.
+The 0.1.0 release build uses source-built native objects and independently
+authored, limited service definitions in place of IBM assembler macros. It
+needs no IBM HLASM/ASMA90, z/OS binder, IBM macro library or prebuilt target
+runtime object as a build input. Ordinary host tools and a pinned host cREXX
+runtime are still prerequisites.
+
+Original project code is MIT-licensed; GCC, binutils, newlib, PDLD and PDPCLIB
+retain their respective terms and credits. Access to a target IBM operating
+system is a separate matter: this SDK supplies neither that system nor a
+licence to use it. See [licensing and provenance](LICENSING.md) for the exact
+scope, source origins and distinction from older private bootstrap packages.
+
+For current limitations and next steps, see the
+[release scope](docs/RELEASE-PLAN.md#known-limits) and
+[component backlogs](docs/README.md#contributing).

@@ -79,32 +79,33 @@ int mf_command_query(MfCommandSession *s, const char *name, int *present,
     *present = r->service_rc == 0;
     return MF_COMMAND_OK;
 }
-int mf_command_execute(MfCommandSession *s, const char *name, const char *text,
-                       unsigned int length, MfCommandResult *r)
+static int execute_facility(MfCommandSession *s,const char *facility,
+                             const char *text,unsigned int length,MfCommandResult *r)
 {
-    unsigned char environment[8], tso[8], *native;
+    unsigned char *native;
     unsigned int bytes;
     /* Unauthorized, unisolated, synchronous command; no abend dump request.
        Native facility contains command abends and reports their codes. */
     unsigned long flags = 0x00010001UL, cmd_len, p[6];
-    int status;
+    int status,present=0;
     mf_command_result_init(r);
     if (!s || !s->active || !r || !length || length > MF_COMMAND_MAX_BYTES)
         return MF_COMMAND_INVALID;
-    status = mf_command_name(name, environment);
-    if (status) return status;
-    mf_command_name("TSO", tso);
-    if (memcmp(environment, tso, 8)) return MF_COMMAND_UNSUPPORTED;
     native = (unsigned char *)malloc(length);
     if (!native) return MF_COMMAND_NO_MEMORY;
     status = mf_command_text(text, length, native, &bytes);
+    if(!status&&!strcmp(facility,"PDOSCMD")){
+        status=mf_command_query(s,"PDOS",&present,r);
+        if(!status&&!present)status=MF_COMMAND_UNSUPPORTED;
+        if(!status)mf_command_result_init(r);
+    }
     if (!status) {
         cmd_len=bytes;
         r->command_rc=-1; r->reason_rc=-1;
         p[0]=PTR(&flags); p[1]=PTR(native); p[2]=PTR(&cmd_len);
         p[3]=PTR(&r->command_rc); p[4]=PTR(&r->reason_rc);
         p[5]=PTR(&r->abend_code); last(&p[5]);
-        status = call("IKJEFTSR", p, 0, r);
+        status = call(facility, p, 0, r);
         if (!status) {
             if (r->service_rc == 0 || r->service_rc == 4)
                 r->command_rc_valid = 1;
@@ -113,5 +114,21 @@ int mf_command_execute(MfCommandSession *s, const char *name, const char *text,
     }
     free(native);
     return status;
+}
+int mf_command_execute(MfCommandSession *s,const char *name,const char *text,
+                        unsigned int length,MfCommandResult *r)
+{
+    unsigned char environment[8],tso[8];int status;
+    mf_command_result_init(r);
+    if(!s||!s->active||!r||!length||length>MF_COMMAND_MAX_BYTES)return MF_COMMAND_INVALID;
+    status=mf_command_name(name,environment);if(status)return status;
+    mf_command_name("TSO",tso);
+    if(memcmp(environment,tso,8))return MF_COMMAND_UNSUPPORTED;
+    return execute_facility(s,"IKJEFTSR",text,length,r);
+}
+int mf_pdos_command_execute(MfCommandSession *s,const char *text,
+                            unsigned int length,MfCommandResult *r)
+{
+    return execute_facility(s,"PDOSCMD",text,length,r);
 }
 #endif

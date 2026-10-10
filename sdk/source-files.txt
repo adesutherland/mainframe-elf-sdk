@@ -201,3 +201,7 @@ tests/command/environment.c
 tests/command/input.txt
 tests/command/run-tso.rexx
 tests/command/run-tso.clist
+libc/scripts/check-pdos-command.crexx
+tests/command/pdos.c
+tests/command/child.c
+tests/command/fault.c

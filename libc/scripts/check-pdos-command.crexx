@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: MIT; new optional clients, no guest side effects. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args=.string[]
+  if args.0<>2 then return 2
+  sdk=args.1;out=args.2
+  if left(sdk,1)<>"/"|left(out,1)<>"/" then return 2
+  address crexx "run test ! -e :out"
+  if rc<>0 then return 2
+  address crexx "run mkdir -p :out"
+  if rc<>0 then return rc
+  i=.int;name=.string;source=.string;binary=.string;flags=.string[]
+  do i=1 to 2
+    name=word("cms tso",i);source="libc/src/adapters/"||name||"/command.c";binary=out||"/"||name||"-host"
+    flags.1="-std=c89";flags.2="-Wall";flags.3="-Wextra";flags.4="-Werror"
+    flags.5="-fsanitize=address,undefined";flags.6="-DMF_COMMAND_HOST_TEST";flags.7="-Ilibc/src/adapters"
+    if i=2 then flags.8="-DTEST_TSO"
+    address crexx "run cc :flags[] tests/command/adapter.c :source libc/src/adapters/command-text.c libc/src/adapters/cms/text-codec.c -o :binary"
+    if rc<>0 then return rc
+    address crexx "run :binary"
+    if rc<>0 then return rc
+  end
+  location=.string[]
+  address crexx "pwd" output location
+  adapters=strip(location.1)||"/libc/src/adapters"
+  consumer="sdk/scripts/compiler_sdk_consume.py"
+  profile=.string;mode=.string;target=.string;prefix=.string
+  do i=1 to 4
+    profile="tso-zos31-v1";mode="--tso-source";source="tests/command/"||word("pdos child fault pdos",i)||".c"
+    prefix=word("PDENV ENVCH ENVFL PDENV",i)
+    if i=4 then do
+      profile="cms20-esa31-v1";mode="--cms-source"
+    end
+    target=out||"/"||word("tso child fault cms",i)
+    address crexx "run python3 -B :consumer --sdk :sdk --profile :profile :mode :source --command-adapters :adapters --member-prefix :prefix --out :target"
+    if rc<>0 then return rc
+  end
+  inputs=.string[];hashes=.string[]
+  address crexx "run rg --files --sort path libc/src/adapters tests/command" output inputs
+  if rc<>0 then return rc
+  inputs[inputs.0+1]="libc/scripts/check-pdos-command.crexx"
+  inputs[inputs.0+1]=sdk||"/SDK-MANIFEST.json"
+  address crexx "run shasum -a 256 :inputs[]" output hashes
+  if rc<>0 then return rc
+  do i=1 to hashes.0
+    call lineout out||"/inputs.sha256",hashes[i]
+  end
+  call lineout out||"/inputs.sha256"
+  outputs=.string[];hashes=.string[]
+  outputs.1=out||"/cms/cms20-esa31-v1/consumer.module"
+  outputs.2=out||"/tso/tso-zos31-v1/PDENV31.XMI"
+  outputs.3=out||"/child/tso-zos31-v1/ENVCH31.XMI"
+  outputs.4=out||"/fault/tso-zos31-v1/ENVFL31.XMI"
+  address crexx "run shasum -a 256 :outputs[]" output hashes
+  if rc<>0 then return rc
+  do i=1 to hashes.0
+    call lineout out||"/outputs.sha256",hashes[i]
+  end
+  call lineout out||"/outputs.sha256"
+  say "Optional PDOS CMS31/TSO31 clients and TSO31 child/fault packages built. Guest checks remain separate."
+  return 0

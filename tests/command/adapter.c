@@ -39,7 +39,8 @@ int mf_tso_command_call(const unsigned char name[8], unsigned long *p,
         assert(*(unsigned long *)parameter(p,2) == 32);
         return missing ? 8 : 0;
     }
-    mf_command_name("IKJEFTSR", expected); assert(!memcmp(name, expected, 8));
+    mf_command_name("IKJEFTSR", expected);
+    if(memcmp(name,expected,8)){mf_command_name("PDOSCMD",expected);assert(!memcmp(name,expected,8));}
     assert(environment == 0);
     assert(*(unsigned long *)parameter(p,0) == 0x00010001UL);
     assert(*(unsigned long *)parameter(p,2) == 13);
@@ -107,6 +108,10 @@ int main(void)
     assert(mf_command_execute(&s,"TSO","TIME  A\"B\" ()",13,&r) == 0 &&
            r.command_rc_valid && r.command_rc == -3);
     command_failure=0;
+    assert(mf_pdos_command_execute(&s,"TIME  A\"B\" ()",13,&r)==0&&r.command_rc_valid&&r.command_rc==0);
+    missing=1;
+    assert(mf_pdos_command_execute(&s,"TIME  A\"B\" ()",13,&r)==MF_COMMAND_UNSUPPORTED&&!r.command_rc_valid);
+    missing=0;
 #ifdef TEST_TSO
     facility_error=20;
     assert(mf_command_execute(&s,"TSO","TIME  A\"B\" ()",13,&r) == MF_COMMAND_NATIVE_ERROR &&
@@ -123,6 +128,10 @@ int main(void)
     assert(calls == previous);
 #endif
     previous=calls;
+    assert(mf_pdos_command_execute(&s,"x\0y",3,&r)==MF_COMMAND_INVALID);
+    assert(mf_pdos_command_execute(&s,"\xc3",1,&r)==MF_COMMAND_INVALID);
+    assert(mf_pdos_command_execute(&s,0,4,&r)==MF_COMMAND_INVALID);
+    assert(calls==previous);
     assert(mf_command_execute(&s,"BAD NAME","TIME",4,&r) == MF_COMMAND_INVALID);
     assert(mf_command_execute(&s,"TSO","TIME",MF_COMMAND_MAX_BYTES+1,&r) == MF_COMMAND_INVALID);
     assert(mf_command_execute(&s,"TSO",0,4,&r) == MF_COMMAND_INVALID);

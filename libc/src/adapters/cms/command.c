@@ -41,15 +41,15 @@ int mf_command_query(MfCommandSession *s, const char *name, int *present,
     *present = r->service_rc == 0;
     return MF_COMMAND_OK;
 }
-int mf_command_execute(MfCommandSession *s, const char *name, const char *text,
-                       unsigned int length, MfCommandResult *r)
+static int execute(MfCommandSession *s,const char *name,const char *text,
+                    unsigned int length,MfCommandResult *r,int optional)
 {
     struct { unsigned char name[8], fence[8]; } p;
     void *eplist[4];
     unsigned long regs[2];
     unsigned char *native;
     unsigned int bytes;
-    int status;
+    int status,present=0;
     mf_command_result_init(r);
     if (!s || !s->active || !r || !length || length > MF_COMMAND_MAX_BYTES)
         return MF_COMMAND_INVALID;
@@ -58,6 +58,11 @@ int mf_command_execute(MfCommandSession *s, const char *name, const char *text,
     native = (unsigned char *)malloc(length);
     if (!native) return MF_COMMAND_NO_MEMORY;
     status = mf_command_text(text, length, native, &bytes);
+    if(!status&&optional){
+        status=mf_command_query(s,name,&present,r);
+        if(!status&&!present)status=MF_COMMAND_UNSUPPORTED;
+        if(!status)mf_command_result_init(r);
+    }
     if (!status) {
         memset(p.fence, 0xff, 8);
         eplist[0] = p.name; eplist[1] = native;
@@ -68,5 +73,13 @@ int mf_command_execute(MfCommandSession *s, const char *name, const char *text,
     }
     free(native);
     return status;
+}
+int mf_command_execute(MfCommandSession *s,const char *name,const char *text,
+                        unsigned int length,MfCommandResult *r)
+{return execute(s,name,text,length,r,0);}
+int mf_pdos_command_execute(MfCommandSession *s,const char *text,
+                            unsigned int length,MfCommandResult *r)
+{
+    return execute(s,"PDOS",text,length,r,1);
 }
 #endif

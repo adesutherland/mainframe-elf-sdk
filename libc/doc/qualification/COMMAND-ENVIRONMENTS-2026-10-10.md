@@ -282,6 +282,44 @@ PDPCLIB's PCL-002 owns those prerequisites; its TSO SDK assembler service is
 not a whole Classic C client.
 The inherited CMS system() success placeholder is not such evidence. Native
 registration, callbacks, complete enumeration, command output capture,
-TSO24/64, cREXX package integration and PDOS implementation remain open.
-The reviewed exact binaries are retained for later unchanged execution on
-PDOS once the required CMS and Rexx service entry points exist there.
+TSO24/64 and cREXX package integration remain open. The subsequent PDOS
+qualification below uses the reviewed exact native binaries.
+
+## PDOS 0.2.2 bounded command-environment qualification
+
+The original freeze-5 CMS31 ENVFIX MODULE and TSO31 ENV31 XMIT run unchanged
+on the reviewed PDOS F4 candidate. CMS retains `ENVINPUT DATA A`; TSO uses
+its existing direct dataset allocation with `LABA01.ENVCMD.INPUT`, rather
+than the real-z/OS run's preallocated DD argument. No native CMS/z/OS run
+was repeated for this campaign.
+
+The optional `mf_pdos_command_execute` client and its separate CMS/TSO
+fixtures were built with the existing 0.1.0 SDK and selected newlib adapters.
+The installed SDK and upstream newlib core are unchanged. The optional
+function validates/encodes before querying `PDOS`, reports absence explicitly,
+and invokes SUBCOM PDOS or the separate PDOSCMD facility. It does not change
+the selected native `CMS` and `TSO` meanings. Retained recipe:
+`libc/scripts/check-pdos-command.crexx`; fixtures:
+`tests/command/pdos.c`, `child.c` and `fault.c`.
+
+Model5 colour, model2 colour and line primary each pass 18 original CMS
+checks, 19 original TSO checks and 13 checks for each optional client: 189
+application checks in total. The real TSO31 child prints its output once
+per caller and returns RC7. A volatile write to unmapped page 0x2000 supplies
+the contained hardware-fault control. CMS returns native RC-4; TSO reports
+facility12 with invalid command RC. Subsequent command success, unbuffered
+input continuation, 128 KiB caller guard and close all pass.
+
+The complete stopped transcripts/captures, actual geometry, clean shutdown,
+zero invocation/console-owner state and STORE/non-STORE readbacks were
+independently reviewed. The [PDOS qualification record](../../../../z-pdos/pdos/doc/qualification/COMMAND-ENVIRONMENTS-2026-10-10.md)
+owns F4's exact K/U/package hashes, resolved development failures and
+per-profile receipts. It also records the 106-check foundation diagnostic
+run and event-based capture repair. This is a local development checkpoint,
+not a new SDK release or managed PDOS adoption.
+
+The PDOS context is opaque, with read-only known-name queries and a bounded
+CMS/TSO command subset. It is not a traversable IBM ENVBLOCK or a Rexx
+processor. Application registration/callbacks, Classic whole-library clients,
+additional client modes and actual cREXX ADDRESS integration remain later
+work. The maintained source inventory now verifies 206 files.

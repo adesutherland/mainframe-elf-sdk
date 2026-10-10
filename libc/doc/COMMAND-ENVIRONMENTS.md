@@ -6,6 +6,24 @@ query a named environment, execute a command synchronously, and close the
 client handle. Application environment registration and callbacks remain later
 work. The upstream newlib core is unchanged.
 
+The optional `mf_pdos_command_execute` extension uses the separately named
+`PDOS` vocabulary. It validates/encodes the whole command before querying
+PDOS. Absence returns MF_COMMAND_UNSUPPORTED. CMS invokes SUBCOM PDOS; TSO
+uses the separate PDOSCMD facility. The existing CMS and TSO names and their
+native invocation contracts are unchanged.
+
+Build the new optional clients and their child/fault controls with
+`libc/scripts/check-pdos-command.crexx`, using the same two absolute arguments
+as the baseline recipe below. It produces CMS PDENV, TSO PDENV31 and TSO31
+ENVCH31/ENVFL31 packages. Package dataset aliases on PDOS are ENVCHILD and
+ENVFAULT. These are separate fixtures; the previously qualified ENVFIX/ENV31
+binaries remain frozen and unchanged for the PDOS compatibility run.
+The PDOS fixture checks the shared vocabulary, a real child returning RC7,
+a contained child fault, subsequent command success, unbuffered caller input
+and a 128 KiB storage guard. Both original native clients and the optional
+clients pass the bounded PDOS model5/model2/line matrix; the dated record
+owns exact hashes and evidence. This does not supply a Rexx processor.
+
 CMS uses SUBCOM query and CMSCALL/SVC 204 with CALLTYP SUBCOM and a four-word
 extended parameter list. TSO borrows the current Rexx language processor with
 IRXINIT FINDENVB and queries IRXSUBCM. Generic C invokes TSO commands through
@@ -110,8 +128,8 @@ file path instead of succeeding only from a prefetched C stdio buffer.
 
 The [dated qualification record](qualification/COMMAND-ENVIRONMENTS-2026-10-10.md)
 distinguishes host checks from real guest outcomes. This is not yet a claim
-of complete CMS/TSO command support, Classic/PDPCLIB qualification, cREXX
-runtime integration or unchanged-binary execution on z/PDOS.
+of complete CMS/TSO command support, Classic/PDPCLIB qualification or cREXX
+runtime integration. It includes the selected unchanged-binary PDOS runs.
 
 Interface references: IBM [CMS SUBCOM](https://www.ibm.com/docs/en/zvm/7.3?topic=functions-subcom),
 [CMSCALL](https://www.ibm.com/docs/SSB27U_7.2.0/com.ibm.zvm.v720.dmsa6/cmscall.htm),

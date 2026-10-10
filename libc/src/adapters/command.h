@@ -38,4 +38,9 @@ int mf_command_query(MfCommandSession *, const char *, int *, MfCommandResult *)
    queryable but return UNSUPPORTED for invocation. No IRXHST fallback. */
 int mf_command_execute(MfCommandSession *, const char *, const char *,
                        unsigned int, MfCommandResult *);
+/* Optional PDOS vocabulary. Query PDOS first; native CMS/TSO absence is
+   UNSUPPORTED. TSO uses the separately named PDOSCMD facility, never an
+   alias that changes the meaning of mf_command_execute(...,"TSO",...). */
+int mf_pdos_command_execute(MfCommandSession *, const char *, unsigned int,
+                            MfCommandResult *);
 #endif

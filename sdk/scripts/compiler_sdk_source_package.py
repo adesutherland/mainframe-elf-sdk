@@ -141,12 +141,14 @@ def main() -> None:
     (out / "adapters/tso").mkdir()
     for name in ("entry24.asm", "entry31-any.asm", "entry31.asm", "io.c",
                  "native-args.h", "native-path.c", "sdk-path.h", "services.h",
-                 "signals.c"):
+                 "signals.c", "command.c"):
         shutil.copy2(ROOT / "libc/src/adapters/tso" / name, out / "adapters/tso" / name)
     shutil.copy2(ROOT / "libc/src/adapters/tso/sdk-application.c",
                  out / "adapters/tso/application.c")
     shutil.copy2(ROOT / "libc/src/adapters/mainframe_text.h",
                  out / "adapters/mainframe_text.h")
+    for name in ("command.h", "command-internal.h", "command-text.c"):
+        shutil.copy2(ROOT / "libc/src/adapters" / name, out / "adapters" / name)
     (out / "contracts/tso").mkdir(parents=True)
     shutil.copy2(ROOT / "tests/tso/sdk-member-smoke.rexx",
                  out / "contracts/tso/sdk-member-smoke.rexx")
@@ -154,6 +156,8 @@ def main() -> None:
                  out / "contracts/tso/sdk-file-smoke.c")
     shutil.copy2(ROOT / "tests/tso/sdk-file-setup.rexx",
                  out / "contracts/tso/sdk-file-setup.rexx")
+    shutil.copytree(ROOT / "tests/command", out / "contracts/command",
+                    ignore=shutil.ignore_patterns("._*", ".DS_Store"))
     for source, installed in (("tso-image.ld", "image.ld"),
                               ("tso64-image.ld", "image64.ld"),
                               ("tso64-high-image.ld", "image64-high.ld")):

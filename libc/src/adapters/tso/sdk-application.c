@@ -36,7 +36,7 @@ int lab_tso_start(const unsigned char *raw, unsigned length,
                       services->version!=LAB_TSO_SERVICE_VERSION)) return 12;
 #else
     if (!services || (services->version!=3 && services->version!=4 &&
-                      services->version!=5 &&
+                      services->version!=5 && services->version!=7 &&
                       services->version!=LAB_TSO_SERVICE_VERSION)) return 12;
 #endif
     lab_tso_services=services;

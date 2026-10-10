@@ -272,8 +272,54 @@ GSBAD    SR    2,2
 GSRET    LM    6,15,SVCSAVE
          BR    14
 NATBASE  DC    A(LABTSO)
-SVCTAB   DC    F'6',A(PUTLINE),A(ALLOCATE),A(RELEASE)
+* C32 R2=name, R3=parameter list, R4=ENVBLOCK, R5=loader status.
+* LOAD RETURN requested: absent services return an error instead of S806.
+* Each successful LOAD is balanced by DELETE, even on service failure.
+COMMANDC STM   6,15,24(15)
+         LR    10,15
+         BASR  12,0
+CMDBASE  SH    15,CMDSTACK-CMDBASE(12)
+         LA    13,96(15)
+         XC    0(72,13),0(13)
+* Chain the native frame to the entry save area; C's R13 is not a native SA.
+         L     6,CMDENTRY-CMDBASE(12)
+         ST    6,4(13)
+         L     7,8(6)
+         ST    7,72(13)
+         ST    13,8(6)
+         LR    6,2
+         LR    7,3
+         LR    8,4
+         LR    9,5
+         LR    0,6
+         L     1,CMDRET-CMDBASE(12)
+         SVC   8
+         ST    15,0(9)
+         LTR   15,15
+         BNZ   CMDDONE-CMDBASE(12)
+         LR    15,0
+         LR    0,8
+         LR    1,7
+         DC    X'0CEF'       BASSM 14,15 (ESA/390 RR instruction)
+         LR    8,15
+         LR    0,6
+         SR    1,1
+         SVC   9
+         ST    15,0(9)
+         LR    15,8
+CMDDONE  LR    2,15
+         L     6,CMDENTRY-CMDBASE(12)
+         L     7,72(13)
+         ST    7,8(6)
+         LM    6,15,24(10)
+         BR    14
+         DS    0F
+CMDRET   DC    X'80000000'
+CMDENTRY DC    A(ENTRYSA)
+CMDSTACK DC    H'256'
+SVCTAB   DC    F'7',A(PUTLINE),A(ALLOCATE),A(RELEASE)
          DC    A(FILECALL),A(FINISH),A(READLINE),A(GETSTATE)
+         DC    A(COMMANDC)
 FILESVC  DC    V(@@AOPEN),V(@@AREAD),V(@@AWRITE),V(@@ACLOSE)
          DC    V(@@DYNAL)
 FREEPTR  DS    F

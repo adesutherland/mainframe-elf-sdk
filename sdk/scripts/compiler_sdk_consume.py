@@ -70,6 +70,8 @@ def producer_c_decks(work: Path, sysroots: dict[str, Path], out: Path) -> None:
         shutil.copytree(source, stage / "adapters" / name)
     shutil.copy2(ROOT / "libc/src/adapters/mainframe_text.h",
                  stage / "adapters/mainframe_text.h")
+    for name in ("command.h", "command-internal.h", "command-text.c"):
+        shutil.copy2(ROOT / "libc/src/adapters" / name, stage / "adapters" / name)
     shutil.copy2(stage / "adapters/tso/sdk-application.c",
                  stage / "adapters/tso/application.c")
     (stage / "contracts/tso").mkdir(parents=True)
@@ -122,6 +124,56 @@ def compile_one(sdk: Path, profile: str, source: Path, output: Path,
     return output
 
 
+def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path) -> tuple[Path, dict]:
+    """Stage reviewed adapter sources over a verified SDK without changing it.
+
+    The cREXX qualification recipe owns this bounded workflow. Libraries,
+    compiler, exporters and native file services remain verified base inputs.
+    This is a local candidate, not a release package or guest result.
+    """
+    stage = out / "candidate-sdk"
+    shutil.copytree(sdk, stage)
+    sources = [adapters / name for name in
+               ("command.h", "command-internal.h", "command-text.c",
+                "cms/command.c", "cms/command-call.s", "cms/text-codec.c",
+                "tso/command.c", "tso/entry31-any.asm", "tso/services.h",
+                "tso/sdk-application.c")]
+    identities = {}
+    for path in sources:
+        identities[str(path)] = sha(path)
+        target = stage / "adapters" / path.relative_to(adapters)
+        shutil.copyfile(path, target)
+    shutil.copyfile(adapters / "command.h", stage / "sysroots" / profile /
+                    "include/command.h")
+    shutil.copyfile(adapters / "tso/sdk-application.c", stage / "adapters/tso/application.c")
+    if profile == "cms20-esa31-v1":
+        objects = []
+        work = out / "command-runtime"
+        extra = (f"-I{stage / 'adapters'}", f"-I{stage / 'adapters/cms'}")
+        for name in ("cms/command.c", "command-text.c"):
+            objects.append(compile_one(stage, profile, stage / "adapters" / name,
+                           work / (Path(name).parent.name + "-" + Path(name).stem + ".o"),
+                           extra=extra))
+        stamped = work / "command-call.profile.s"
+        object_file = work / "command-call.o"
+        run(stage / "host/bin/s370_check", "annotate", profile,
+            stage / "adapters/cms/command-call.s", stamped)
+        run(stage / "host/binutils/bin/s390-linux-gnu-as", "-L", "-m31", "-mesa",
+            stamped, "-o", object_file)
+        run(stage / "host/bin/s370_check", "input", profile, object_file)
+        objects.append(object_file)
+        archive = stage / "sysroots" / profile / "lib/libcms.a"
+        run(stage / "host/binutils/bin/s390-linux-gnu-ar", "rcsD", archive, *objects)
+    else:
+        entry = out / "command-entry.obj"
+        run(stage / "host/classic/bin/mf-classic-as", "--profile", "z900",
+            stage / "adapters/tso/entry31-any.asm", entry)
+        shutil.copyfile(entry, stage / "native/source/tso31-any-entry.obj")
+    return stage, {"source_files_sha256": identities,
+                   "base_sdk_manifest_sha256": sha(sdk / "SDK-MANIFEST.json"),
+                   "qualification": "local adapter overlay on verified SDK; no guest execution"}
+
+
 def link_cms(sdk: Path, profile: str, object_file: Path, out: Path) -> dict:
     lib = sdk / "sysroots" / profile / "lib"
     start = sdk / "sysroots" / profile / "startup.o"
@@ -165,7 +217,7 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path,
         layout = sdk / "contracts/tso/image64.ld"
         writer = sdk / "host/bin/elf_to_mvs64"
     else:
-        extra = (f"-I{sdk / 'adapters/tso'}", f"-I{sdk / 'adapters/cms'}",
+        extra = (f"-I{sdk / 'adapters'}", f"-I{sdk / 'adapters/tso'}", f"-I{sdk / 'adapters/cms'}",
                  "-DLAB_TSO_GENERIC_PROGRAM=1")
         if bits == "24":
             extra += ("-DLAB_TSO_HEAP_SIZE=4194304", "-DLAB_TSO24=1")
@@ -181,6 +233,11 @@ def link_tso(sdk: Path, profile: str, source: Path, out: Path,
         native_sources.append(sdk / "adapters/tso64/filebridge.c")
     objects = [compile_one(sdk, profile, path, out / f"part{index}.o", extra=extra)
                for index, path in enumerate(native_sources)]
+    if bits == "31" and (sdk / "adapters/tso/command.c").is_file():
+        for name in ("tso/command.c", "command-text.c"):
+            objects.append(compile_one(sdk, profile, sdk / "adapters" / name,
+                           out / (Path(name).stem + ".o"),
+                           extra=(*extra, "-D__MAINFRAME_LAB_TSO31__=1")))
     lib = sdk / "sysroots" / profile / "lib"
     libraries = [lib / name for name in ("libnewlib.a", "libextra.a", "libm-extra.a",
                  "libgcc-wide.a", "libgcc-soft.a")]
@@ -265,6 +322,10 @@ def main() -> None:
     p.add_argument("--profile", choices=(*PROFILES, "all"), default="all")
     p.add_argument("--tso-source", type=Path,
                    help="compile a supplied C consumer for one TSO profile")
+    p.add_argument("--cms-source", type=Path,
+                   help="compile a supplied C consumer for one CMS profile")
+    p.add_argument("--command-adapters", type=Path,
+                   help="stage maintained command adapters over a verified CMS31/TSO31 SDK")
     p.add_argument("--member-prefix", default="SDKTS",
                    help="one to five uppercase letters/digits for native member names")
     p.add_argument("--producer-c-decks", action="store_true",
@@ -288,6 +349,10 @@ def main() -> None:
         p.error("member prefix must be one to five uppercase letters/digits")
     if a.tso_source and not a.profile.startswith("tso-"):
         p.error("--tso-source requires one TSO profile")
+    if a.cms_source and a.profile not in ("vm370-4381-v1", "cms20-esa31-v1"):
+        p.error("--cms-source requires one CMS profile")
+    if a.command_adapters and a.profile not in ("cms20-esa31-v1", "tso-zos31-v1"):
+        p.error("--command-adapters requires CMS31 or TSO31")
     if (a.profile == "tso-zos24-v1" and a.tso_source and
             a.tso_source.name == "sdk-file-smoke.c"):
         p.error("the SDK file smoke requires TSO31 or TSO64; "
@@ -297,7 +362,12 @@ def main() -> None:
     if out.exists():
         p.error("refusing existing consumer output")
     receipt = verify(sdk)
+    base_manifest_sha256 = sha(sdk / "SDK-MANIFEST.json")
     out.mkdir(parents=True)
+    overlay = None
+    if a.command_adapters:
+        sdk, overlay = command_candidate(sdk, a.profile,
+                                         a.command_adapters.resolve(strict=True), out)
     selected = PROFILES if a.profile == "all" else (a.profile,)
     results = {}
     for profile in selected:
@@ -314,6 +384,8 @@ def main() -> None:
                                   "static volatile int * volatile pointer=&answer; "
                                   "int main(int argc, char **argv) { (void)argc; "
                                   "(void)argv; return *pointer; }\n")
+        elif a.cms_source:
+            shutil.copyfile(a.cms_source.resolve(strict=True), source)
         elif profile != "vmkernel":
             source.write_text("int main(int argc, char **argv) { (void)argv; return argc+41; }\n")
         if profile == "vmkernel":
@@ -328,10 +400,11 @@ def main() -> None:
             results[profile] = link_tso(sdk, profile, source, target,
                                         a.member_prefix)
         else:
-            obj = compile_one(sdk, profile, source, target / "consumer.o")
+            obj = compile_one(sdk, profile, source, target / "consumer.o",
+                              extra=(f"-I{sdk / 'adapters'}",))
             results[profile] = link_cms(sdk, profile, obj, target)
     (out / "result.json").write_text(json.dumps({"format": "mainframe-compiler-sdk-consumer-v1",
-        "sdk_manifest_sha256": sha(sdk / "SDK-MANIFEST.json"), "profiles": results,
+        "sdk_manifest_sha256": base_manifest_sha256, "command_candidate": overlay, "profiles": results,
         "qualification": "host compile/link/package only; no new guest execution"},
         indent=2, sort_keys=True) + "\n")
     print(f"SDK consumer PASS: {out}")

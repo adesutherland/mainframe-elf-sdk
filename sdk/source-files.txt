@@ -187,3 +187,17 @@ tests/tso/sdk-file-setup.rexx
 tests/tso/sdk-file-smoke.c
 tests/tso/sdk-member-smoke.rexx
 tests/tso/text-switch.c
+libc/doc/COMMAND-ENVIRONMENTS.md
+libc/doc/qualification/COMMAND-ENVIRONMENTS-2026-10-10.md
+libc/scripts/check-command.crexx
+libc/src/adapters/cms/command-call.s
+libc/src/adapters/cms/command.c
+libc/src/adapters/command-internal.h
+libc/src/adapters/command-text.c
+libc/src/adapters/command.h
+libc/src/adapters/tso/command.c
+tests/command/adapter.c
+tests/command/environment.c
+tests/command/input.txt
+tests/command/run-tso.rexx
+tests/command/run-tso.clist

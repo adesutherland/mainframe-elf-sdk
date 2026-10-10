@@ -59,11 +59,12 @@ main: procedure = .int
   call arrayappend flags,"-I" || generated
   call arrayappend flags,"-I" || headers
   call arrayappend flags,"-I" || adapter
+  call arrayappend flags,"-Ilibc/src/adapters"
   call arrayappend flags,"-DLAB_CMS_APPLICATION"
   call arrayappend flags,"-DCREXX_CMS_TEXT_IO"
   call arrayappend flags,heap
   c_names = "adapter newlib_syscalls arguments application files text text-codec signals arithmetic"
-  if profile = "cms20-esa31-v1" then c_names = c_names || " storage31"
+  if profile = "cms20-esa31-v1" then c_names = c_names || " storage31 command ../command-text"
   members = .string[]
   do i = 1 to words(c_names)
     source = adapter || "/" || word(c_names,i) || ".c"
@@ -83,7 +84,7 @@ main: procedure = .int
     call arrayappend members,object
   end
   a_names = "svc202"
-  if profile = "cms20-esa31-v1" then a_names = "svc204 storage31"
+  if profile = "cms20-esa31-v1" then a_names = "svc204 storage31 command-call"
   do i = 1 to words(a_names)
     source = adapter || "/" || word(a_names,i) || ".s"
     ranges = checked_dir || "/cms-a" || i || ".s"

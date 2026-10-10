@@ -1,5 +1,34 @@
 # SDK C library backlog
 
+## LIBC-006: Native command-environment clients
+
+- Type: implementation and qualification
+- Status: In progress
+- Target: CMS31 and TSO31 ELF/newlib clients first; other profiles separately.
+- Direction: Query and invoke existing native environments before application
+  registration/callback work. Preserve native context lifetimes, original
+  command text and actual results through explicit binary adapters.
+- Implementation: Borrowed sessions, SUBCOM/CMSCALL and IRXINIT/IRXSUBCM/
+  IKJEFTSR adapters, TSO version-7 native service slot, common C fixture and
+  cREXX host/build recipe. Upstream newlib is unchanged.
+- Evidence: [Interface](COMMAND-ENVIRONMENTS.md) and [10 October record](qualification/COMMAND-ENVIRONMENTS-2026-10-10.md).
+  Host C89 sanitizer and native packaging checks pass. CMS20 executed the
+  exact CMS31 binary with all required checks and native RC0. The first TSO
+  active-Rexx IRXHST caller failed with IRX0812E; its CLIST control abended.
+  Generic C TSO invocation was replaced by the documented IKJEFTSR facility,
+  with explicit unsupported results for other Rexx environments. The repaired
+  TSO31 binary passed all 19 checks and native RC0 through a direct CLIST
+  caller on z/OS 1.5. Final-source CMS5 also passed all 18 checks/native RC0.
+  Operator handback passed, independently checked against processes, ports,
+  disk handles and live fleet leases. Classic and PDOS matrix cells stay open.
+  CMS recovery used approved
+  FORCE NOAUTOLOG.
+- Acceptance: Named CMS31/TSO31 success/error execution on real systems,
+  preserved open input and caller storage, native output and return status,
+  exact input/binary freeze and operator handback. Qualify Classic/PDPCLIB
+  separately and run the frozen binaries unchanged on PDOS only after its
+  native services are implemented. No complete-family or cREXX runtime claim.
+
 ## LIBC-001: Source-built profile runtimes
 
 - Type: qualification

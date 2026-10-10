@@ -1,0 +1,89 @@
+/* SPDX-License-Identifier: MIT
+   Bounded command client checks and native packaging; no guest operations. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  i = .int
+  name = .string
+  profile = .string
+  binary = .string
+  mode = .string
+  if args.0 <> 2 then do
+    say "usage: crexx -nokeep libc/scripts/check-command.crexx --args VERIFIED_SDK NEW_OUTPUT"
+    return 2
+  end
+  sdk = args.1; out = args.2
+  if left(sdk,1) <> "/" | left(out,1) <> "/" then return 2
+  address crexx "run test -e :out"
+  if rc = 0 then return 2
+  address crexx "mkdir -p :out"
+  if rc <> 0 then return rc
+  flags = .string[]
+  flags.1="-std=c89";flags.2="-Wall";flags.3="-Wextra";flags.4="-Werror"
+  flags.5="-fsanitize=address,undefined";flags.6="-DMF_COMMAND_HOST_TEST"
+  flags.7="-Ilibc/src/adapters"
+  do i=1 to 2
+    name=word("cms tso",i)
+    binary=out||"/"||name||"-host"
+    source="libc/src/adapters/"||name||"/command.c"
+    if i=2 then flags[flags.0+1]="-DTEST_TSO"
+    address crexx "run cc :flags[] tests/command/adapter.c :source libc/src/adapters/command-text.c libc/src/adapters/cms/text-codec.c -o :binary"
+    if rc <> 0 then return rc
+    address crexx "run :binary"
+    if rc <> 0 then return rc
+  end
+  location=.string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root=strip(location.1)
+  adapters=root||"/libc/src/adapters"
+  consumer="sdk/scripts/compiler_sdk_consume.py"
+  fixture="tests/command/environment.c"
+  do i=1 to 2
+    profile=word("cms20-esa31-v1 tso-zos31-v1",i)
+    target=out||"/"||word("cms tso",i)
+    mode=word("--cms-source --tso-source",i)
+    address crexx "run python3 -B :consumer --sdk :sdk --profile :profile :mode :fixture --command-adapters :adapters --member-prefix ENV --out :target"
+    if rc <> 0 then return rc
+  end
+  entry=out||"/tso/command-entry.obj"
+  entry_check=out||"/tso/command-entry-check.json"
+  address crexx "run python3 -B sdk/scripts/tso_entry_source_check.py --bits 31 --entry :entry --out :entry_check"
+  if rc <> 0 then return rc
+  service=out||"/tso/candidate-sdk/native/source/mvssupa.obj"
+  native_check=out||"/tso/command-native-check.json"
+  address crexx "run python3 -B sdk/scripts/tso31_deck_check.py --entry :entry --service :service --out :native_check"
+  if rc <> 0 then return rc
+  inputs=.string[];hashes=.string[]
+  address crexx "run rg --files --sort path libc/src/adapters tests/command" output inputs
+  if rc <> 0 then return rc
+  names="libc/scripts/check-command.crexx libc/scripts/build-cms-adapters.crexx libc/scripts/package-cms-sysroot.crexx libc/scripts/package-tso-sysroot.crexx sdk/scripts/compiler_sdk_consume.py sdk/scripts/compiler_sdk_source_package.py sdk/scripts/tso_entry_source_check.py sdk/scripts/tso31_deck_check.py sdk/scripts/pdos64_xmit_unload.py"
+  do i=1 to words(names)
+    inputs[inputs.0+1]=word(names,i)
+  end
+  inputs[inputs.0+1]=sdk||"/SDK-MANIFEST.json"
+  address crexx "run shasum -a 256 :inputs[]" output hashes
+  if rc <> 0 then return rc
+  do i=1 to hashes.0
+    call lineout out||"/inputs.sha256",hashes[i]
+  end
+  call lineout out||"/inputs.sha256"
+  call arraydrop hashes
+  outputs=.string[]
+  outputs.1=out||"/cms/cms20-esa31-v1/consumer.module"
+  outputs.2=out||"/cms/cms20-esa31-v1/consumer.elf"
+  outputs.3=out||"/cms/result.json"
+  outputs.4=out||"/tso/tso-zos31-v1/ENV31.XMI"
+  outputs.5=out||"/tso/tso-zos31-v1/consumer.elf"
+  outputs.6=out||"/tso/command-entry.obj"
+  outputs.7=out||"/tso/result.json"
+  outputs.8=entry_check;outputs.9=native_check
+  address crexx "run shasum -a 256 :outputs[]" output hashes
+  if rc <> 0 then return rc
+  do i=1 to hashes.0
+    call lineout out||"/outputs.sha256",hashes[i]
+  end
+  call lineout out||"/outputs.sha256"
+  say "COMMAND CLIENT HOST PASS: C89 controls and CMS31/TSO31 packaging; real guest checks remain separate."
+  return 0

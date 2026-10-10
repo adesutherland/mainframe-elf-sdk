@@ -6,6 +6,7 @@
 #define LAB_TSO_SERVICE_VERSION 0x6403U
 #else
 #define LAB_TSO_SERVICE_VERSION 6U
+#define LAB_TSO_COMMAND_SERVICE_VERSION 7U
 #endif
 typedef unsigned int LabTsoWord;
 #define LAB_TSO_PUTLINE_RAW 0x00524157U
@@ -24,6 +25,10 @@ typedef struct {
     /* Extension appended after all established fields. Returns the actual
        caller PSW mode (31 or 64) only when problem state is also set. */
     LabTsoWord (*inspect_state)(void);
+#ifndef __MAINFRAME_LAB_TSO64__
+    /* Version 7 only; clients check version before reading this slot. */
+    int (*commandcall)(const unsigned char *, unsigned long *, unsigned long, int *);
+#endif
 } LabTsoServices;
 extern const LabTsoServices *lab_tso_services;
 #ifdef __MAINFRAME_LAB_TSO64__

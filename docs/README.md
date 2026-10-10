@@ -10,6 +10,7 @@ and the released platforms. Choose a guide according to what you want to do:
 | Understand our code, the PDOS components and licence dependencies | [Licensing and provenance](../LICENSING.md) |
 | Rebuild the SDK from source | [Source build guide](../sdk/README.md) |
 | See what 0.1.0 proves and what remains open | [Release status and limits](RELEASE-PLAN.md) |
+| Develop a CMS31/TSO31 command-environment client | [Native command environments](../libc/doc/COMMAND-ENVIRONMENTS.md) |
 
 ## Contributing
 

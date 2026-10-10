@@ -33,7 +33,8 @@ unsigned lab_1047_utf8(unsigned byte,unsigned char out[2])
 }
 int lab_unicode_1047(unsigned scalar)
 {
+    unsigned i;
     if (scalar>255) return -1;
-    for (unsigned i=0;i<256;++i) if (lab_1047_unicode[i]==scalar) return (int)i;
+    for (i=0;i<256;++i) if (lab_1047_unicode[i]==scalar) return (int)i;
     return -1;
 }

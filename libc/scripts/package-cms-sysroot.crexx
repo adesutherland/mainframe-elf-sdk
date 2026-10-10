@@ -76,6 +76,10 @@ main: procedure = .int
     address crexx "run cp :source :target"
     if rc <> 0 then return rc
   end
+  source = "libc/src/adapters/command.h"
+  target = include || "/command.h"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
   names = "libnewlib.a libextra.a libm-extra.a libgcc-wide.a libgcc-soft.a libcms.a"
   do i = 1 to 6
     source = files[i]

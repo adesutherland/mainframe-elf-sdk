@@ -55,6 +55,9 @@ def check_source_entry(path: Path, bits: int, amode: int | None = None) -> dict:
     if bits == 31:
         patterns["31-bit GETMAIN"] = (bytes.fromhex("1b1141f000300a78"), 2)
         patterns["EPSW R2,R3"] = (bytes.fromhex("b98d0023"), 2)
+        patterns["command LOAD"] = (bytes.fromhex("0a08"), 1)
+        patterns["command DELETE"] = (bytes.fromhex("0a09"), 1)
+        patterns["command BASSM R14,R15"] = (bytes.fromhex("0cef"), 1)
     if bits == 64:
         patterns["IARV64 PC"] = (bytes.fromhex("b218e000"), 2)
         # The z/OS 1.5 IARV64 linkage loads EX=14 into R15 before PC.

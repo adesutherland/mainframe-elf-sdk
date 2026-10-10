@@ -102,5 +102,9 @@ main: procedure = .int
   if rc <> 0 then return rc
   address crexx "run shasum -a 256 :files[] :entry"
   if rc <> 0 then return rc
+  source = "libc/src/adapters/command.h"
+  target = include || "/command.h"
+  address crexx "run cp :source :target"
+  if rc <> 0 then return rc
   say "TSO C SYSROOT BUILD PASS:" profile "checked libraries and headers; native decks remain separate."
   return 0

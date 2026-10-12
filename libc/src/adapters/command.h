@@ -38,6 +38,11 @@ int mf_command_query(MfCommandSession *, const char *, int *, MfCommandResult *)
    queryable but return UNSUPPORTED for invocation. No IRXHST fallback. */
 int mf_command_execute(MfCommandSession *, const char *, const char *,
                        unsigned int, MfCommandResult *);
+/* Execute the selected native host's command service (CMS or TSO), without
+   borrowing an IBM Rexx environment. TSO calls IKJEFTSR in the existing TSO
+   application session; discovery through IRXSUBCM remains a separate API.
+   This neither initializes TSO outside TSO nor creates a Rexx processor. */
+int mf_command_host_execute(const char *, unsigned int, MfCommandResult *);
 /* Optional PDOS vocabulary. Query PDOS first; native CMS/TSO absence is
    UNSUPPORTED. TSO uses the separately named PDOSCMD facility, never an
    alias that changes the meaning of mf_command_execute(...,"TSO",...). */

@@ -8,8 +8,8 @@ main: procedure = .int
   source = .string
   ranges = .string
   object = .string
-  if args.0 <> 4 then do
-    say "usage: crexx -nokeep libc/scripts/build-cms-adapters.crexx --args PREPARED_WORK PROFILE CORE_BUILD NEW_OUTPUT"
+  if args.0 <> 4 & args.0 <> 5 then do
+    say "usage: crexx -nokeep libc/scripts/build-cms-adapters.crexx --args PREPARED_WORK PROFILE CORE_BUILD NEW_OUTPUT [CMS31_HEAP_BYTES]"
     return 2
   end
   work = args.1
@@ -47,6 +47,15 @@ main: procedure = .int
   generated = core || "/obj"
   heap = "-DLAB_CMS_HEAP_SIZE=262144"
   if profile = "cms20-esa31-v1" then heap = "-DLAB_CMS_HEAP_SIZE=67108864"
+  heap_bytes=.int
+  if args.0=5 then do
+    if profile<>"cms20-esa31-v1" | datatype(args.5,"W")<>1 then return 2
+    heap_bytes=args.5
+    if heap_bytes<1024 | heap_bytes>536870912 | heap_bytes % 8<>0 then return 2
+    heap="-DLAB_CMS_HEAP_SIZE="||heap_bytes
+  end
+  call lineout out||"/heap-profile.txt",profile||" "||heap
+  call lineout out||"/heap-profile.txt"
   flags = .string[]
   flags.1 = "-S"
   flags.2 = "-O2"
@@ -64,7 +73,7 @@ main: procedure = .int
   call arrayappend flags,"-DCREXX_CMS_TEXT_IO"
   call arrayappend flags,heap
   c_names = "adapter newlib_syscalls arguments application files text text-codec signals arithmetic"
-  if profile = "cms20-esa31-v1" then c_names = c_names || " storage31 command ../command-text"
+  if profile = "cms20-esa31-v1" then c_names = c_names || " storage31 command ../command-text directory"
   members = .string[]
   do i = 1 to words(c_names)
     source = adapter || "/" || word(c_names,i) || ".c"
@@ -84,7 +93,7 @@ main: procedure = .int
     call arrayappend members,object
   end
   a_names = "svc202"
-  if profile = "cms20-esa31-v1" then a_names = "svc204 storage31 command-call"
+  if profile = "cms20-esa31-v1" then a_names = "svc204 storage31 command-call fst-lookup"
   do i = 1 to words(a_names)
     source = adapter || "/" || word(a_names,i) || ".s"
     ranges = checked_dir || "/cms-a" || i || ".s"

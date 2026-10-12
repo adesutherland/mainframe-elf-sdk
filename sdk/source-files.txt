@@ -47,6 +47,7 @@ libc/scripts/build-libgcc.crexx
 libc/scripts/build-newlib-extras.crexx
 libc/scripts/build-newlib.crexx
 libc/scripts/build-newlib64.crexx
+libc/scripts/prepare-newlib-candidate.crexx
 libc/scripts/build-tso-entries.crexx
 libc/scripts/check_heap_defaults.crexx
 libc/scripts/package-cms-sysroot.crexx
@@ -196,7 +197,10 @@ libc/src/adapters/command-internal.h
 libc/src/adapters/command-text.c
 libc/src/adapters/command.h
 libc/src/adapters/tso/command.c
+libc/src/adapters/tso/directory.c
+libc/src/adapters/tso/directory.h
 tests/command/adapter.c
+tests/command/directory.c
 tests/command/environment.c
 tests/command/input.txt
 tests/command/run-tso.rexx
@@ -205,3 +209,5 @@ libc/scripts/check-pdos-command.crexx
 tests/command/pdos.c
 tests/command/child.c
 tests/command/fault.c
+tests/command/tso-fault-leaf.asm
+libc/scripts/build-tso-fault-leaf.crexx

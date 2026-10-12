@@ -1,0 +1,50 @@
+/* Native TSO31 IKJEFTSR containment control; never run through CMSCALL.
+   The child deliberately faults before allocating any resource. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  if args.0 <> 4 then do
+    say "usage: build-tso-fault-leaf.crexx CLASSIC_AS CLASSIC_LD NEW_OUTPUT XMIT_READER"
+    return 2
+  end
+  as_tool=args.1; linker=args.2; out=args.3; reader=args.4
+  address crexx "run test ! -e :out"
+  if rc <> 0 then return 2
+  address crexx "mkdir -p :out"
+  if rc <> 0 then return rc
+  source="tests/command/tso-fault-leaf.asm"
+  recipe="libc/scripts/build-tso-fault-leaf.crexx"
+  before=out||"/source-before.sha256"; after=out||"/source-after.sha256"
+  address system "shasum -a 256 "||quote(source)||" "||quote(recipe)||" "||quote(as_tool)||" "||quote(linker)||" "||quote(reader)||" > "||quote(before)
+  if rc <> 0 then return rc
+  object=out||"/MFFLT31.obj"; product=out||"/MFFLT31.XMI"
+  address crexx "run :as_tool --profile esa390 :source :object"
+  if rc <> 0 then return rc
+  /* The load-member name is derived from the output argument. */
+  address system "cd "||quote(out)||" && "||quote(linker)||" --oformat xmit --amode 31 --rmode 31 -e MFFLT31 -o MFFLT31.XMI "||quote(object)
+  if rc <> 0 then return rc
+  readback=out||"/MFFLT31.rdw"
+  address crexx "run python3 :reader :product :readback --member MFFLT31 --amode 31 --rmode ANY"
+  if rc <> 0 then return rc
+  hashes=.string[]
+  address crexx "run shasum -a 256 :source :recipe :as_tool :linker :reader :object :product :readback" output hashes
+  if rc <> 0 then return rc
+  manifest=out||"/inputs-outputs.sha256"
+  i=.int
+  do i=1 to hashes.0
+    call lineout manifest,hashes[i]
+  end
+  call lineout manifest
+  address crexx "run shasum -a 256 --strict -c :manifest"
+  if rc <> 0 then return rc
+  address system "shasum -a 256 "||quote(source)||" "||quote(recipe)||" "||quote(as_tool)||" "||quote(linker)||" "||quote(reader)||" > "||quote(after)
+  if rc <> 0 then return rc
+  address crexx "run cmp :before :after"
+  if rc <> 0 then return rc
+  say "NATIVE TSO FAULT LEAF BUILD PASS"
+  return 0
+
+quote: procedure = .string
+  arg value=.string
+  return "'"||changestr("'",value,"'\''")||"'"

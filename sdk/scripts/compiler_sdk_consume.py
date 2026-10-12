@@ -124,7 +124,8 @@ def compile_one(sdk: Path, profile: str, source: Path, output: Path,
     return output
 
 
-def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path) -> tuple[Path, dict]:
+def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path,
+                      cms_heap_bytes: int | None = None) -> tuple[Path, dict]:
     """Stage reviewed adapter sources over a verified SDK without changing it.
 
     The cREXX qualification recipe owns this bounded workflow. Libraries,
@@ -136,8 +137,11 @@ def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path) -> tup
     sources = [adapters / name for name in
                ("command.h", "command-internal.h", "command-text.c",
                 "cms/command.c", "cms/command-call.s", "cms/text-codec.c",
-                "tso/command.c", "tso/entry31-any.asm", "tso/services.h",
+                "cms/adapter.c", "cms/directory.c", "cms/fst-lookup.s",
+                "tso/command.c", "tso/directory.c", "tso/directory.h", "tso/entry31-any.asm", "tso/services.h",
                 "tso/sdk-application.c")]
+    if cms_heap_bytes is not None:
+        sources.append(adapters / "cms/newlib_syscalls.c")
     identities = {}
     for path in sources:
         identities[str(path)] = sha(path)
@@ -154,6 +158,25 @@ def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path) -> tup
             objects.append(compile_one(stage, profile, stage / "adapters" / name,
                            work / (Path(name).parent.name + "-" + Path(name).stem + ".o"),
                            extra=extra))
+        # Replace the base adapter member by its known SDK recipe name;
+        # appending another provider of the same symbols would select old code.
+        objects.append(compile_one(stage, profile, stage / "adapters/cms/adapter.c",
+                       work / "cms-c1.o", extra=(*extra, "-DLAB_CMS_APPLICATION=1")))
+        if cms_heap_bytes is not None:
+            # Replace the known syscall archive member. A second definition
+            # would leave archive selection dependent on member order.
+            objects.append(compile_one(stage, profile, stage / "adapters/cms/newlib_syscalls.c",
+                           work / "cms-c2.o", extra=(*extra, "-DLAB_CMS_APPLICATION=1",
+                           "-DCREXX_CMS_TEXT_IO=1", f"-DLAB_CMS_HEAP_SIZE={cms_heap_bytes}")))
+        objects.append(compile_one(stage, profile, stage / "adapters/cms/directory.c",
+                       work / "cms-directory.o", extra=extra))
+        fst_object = work / "cms-fst-lookup.o"
+        run(stage / "host/bin/s370_check", "annotate", profile,
+            stage / "adapters/cms/fst-lookup.s", work / "cms-fst-lookup.s")
+        run(stage / "host/binutils/bin/s390-linux-gnu-as", "-L", "-m31", "-mesa",
+            work / "cms-fst-lookup.s", "-o", fst_object)
+        run(stage / "host/bin/s370_check", "input", profile, fst_object)
+        objects.append(fst_object)
         stamped = work / "command-call.profile.s"
         object_file = work / "command-call.o"
         run(stage / "host/bin/s370_check", "annotate", profile,
@@ -170,6 +193,7 @@ def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path) -> tup
             stage / "adapters/tso/entry31-any.asm", entry)
         shutil.copyfile(entry, stage / "native/source/tso31-any-entry.obj")
     return stage, {"source_files_sha256": identities,
+                   "cms_heap_bytes": cms_heap_bytes,
                    "base_sdk_manifest_sha256": sha(sdk / "SDK-MANIFEST.json"),
                    "qualification": "local adapter overlay on verified SDK; no guest execution"}
 
@@ -326,6 +350,12 @@ def main() -> None:
                    help="compile a supplied C consumer for one CMS profile")
     p.add_argument("--command-adapters", type=Path,
                    help="stage maintained command adapters over a verified CMS31/TSO31 SDK")
+    p.add_argument("--cms-heap-bytes", type=int,
+                   help="explicit CMS31 application heap for a local command-adapter candidate")
+    p.add_argument("--runtime-core", type=Path,
+                   help="source-built candidate libnewlib.a, with --command-adapters")
+    p.add_argument("--runtime-extras", type=Path,
+                   help="source-built candidate extra/math directory, with --runtime-core")
     p.add_argument("--member-prefix", default="SDKTS",
                    help="one to five uppercase letters/digits for native member names")
     p.add_argument("--producer-c-decks", action="store_true",
@@ -353,6 +383,12 @@ def main() -> None:
         p.error("--cms-source requires one CMS profile")
     if a.command_adapters and a.profile not in ("cms20-esa31-v1", "tso-zos31-v1"):
         p.error("--command-adapters requires CMS31 or TSO31")
+    if a.cms_heap_bytes is not None and (not a.command_adapters or
+            a.profile != "cms20-esa31-v1" or not 1024 <= a.cms_heap_bytes <= 536870912 or
+            a.cms_heap_bytes % 8):
+        p.error("--cms-heap-bytes requires CMS31 command adapters and aligned 1 KiB..512 MiB")
+    if bool(a.runtime_core) != bool(a.runtime_extras) or (a.runtime_core and not a.command_adapters):
+        p.error("runtime candidates require --runtime-core, --runtime-extras and --command-adapters together")
     if (a.profile == "tso-zos24-v1" and a.tso_source and
             a.tso_source.name == "sdk-file-smoke.c"):
         p.error("the SDK file smoke requires TSO31 or TSO64; "
@@ -367,7 +403,17 @@ def main() -> None:
     overlay = None
     if a.command_adapters:
         sdk, overlay = command_candidate(sdk, a.profile,
-                                         a.command_adapters.resolve(strict=True), out)
+                                         a.command_adapters.resolve(strict=True), out,
+                                         a.cms_heap_bytes)
+        if a.runtime_core:
+            runtime = [a.runtime_core / "libnewlib.a",
+                       a.runtime_extras / "libextra.a", a.runtime_extras / "libm-extra.a"]
+            overlay["runtime_candidate_sha256"] = {}
+            for path in runtime:
+                path = path.resolve(strict=True)
+                run(sdk / "host/bin/s370_check", "input", a.profile, path)
+                overlay["runtime_candidate_sha256"][str(path)] = sha(path)
+                shutil.copyfile(path, sdk / "sysroots" / a.profile / "lib" / path.name)
     selected = PROFILES if a.profile == "all" else (a.profile,)
     results = {}
     for profile in selected:

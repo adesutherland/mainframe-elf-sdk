@@ -89,7 +89,8 @@ static int execute_facility(MfCommandSession *s,const char *facility,
     unsigned long flags = 0x00010001UL, cmd_len, p[6];
     int status,present=0;
     mf_command_result_init(r);
-    if (!s || !s->active || !r || !length || length > MF_COMMAND_MAX_BYTES)
+    if (!r || !length || length > MF_COMMAND_MAX_BYTES ||
+        (!strcmp(facility,"PDOSCMD") && (!s || !s->active)))
         return MF_COMMAND_INVALID;
     native = (unsigned char *)malloc(length);
     if (!native) return MF_COMMAND_NO_MEMORY;
@@ -130,5 +131,9 @@ int mf_pdos_command_execute(MfCommandSession *s,const char *text,
                             unsigned int length,MfCommandResult *r)
 {
     return execute_facility(s,"PDOSCMD",text,length,r);
+}
+int mf_command_host_execute(const char *text,unsigned int length,MfCommandResult *r)
+{
+    return execute_facility(0,"IKJEFTSR",text,length,r);
 }
 #endif

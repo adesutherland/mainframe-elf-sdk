@@ -82,4 +82,14 @@ int mf_pdos_command_execute(MfCommandSession *s,const char *text,
 {
     return execute(s,"PDOS",text,length,r,1);
 }
+int mf_command_host_execute(const char *text,unsigned int length,MfCommandResult *r)
+{
+    MfCommandSession s = {0,0};
+    int status = mf_command_open(&s,r);
+    if (!status) {
+        status = mf_command_execute(&s,"CMS",text,length,r);
+        mf_command_close(&s);
+    }
+    return status;
+}
 #endif

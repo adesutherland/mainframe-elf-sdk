@@ -143,6 +143,11 @@ int main(void)
     assert(mf_command_close(&s) == 0);
     init_rc=28;
     assert(mf_command_open(&s,&r) == MF_COMMAND_NO_ENVIRONMENT && !s.active);
+    previous=calls;
+    assert(mf_command_host_execute("TIME  A\"B\" ()",13,&r) == 0 &&
+           r.command_rc_valid && r.command_rc == 0 && calls == previous+1);
+    previous=calls;
+    assert(mf_command_host_execute("x\0y",3,&r) == MF_COMMAND_INVALID && calls == previous);
     init_rc=20;
     assert(mf_command_open(&s,&r) == MF_COMMAND_NATIVE_ERROR && !s.active);
     init_rc=0;

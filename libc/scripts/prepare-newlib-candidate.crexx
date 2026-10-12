@@ -1,0 +1,65 @@
+/* Prepare canonical newlib with maintained SDK overlays and an existing
+   qualified compiler. This is a local runtime candidate, not a tools build. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  if args.0 <> 3 then return 2
+  sdk=args.1; archive=args.2; out=args.3
+  address crexx "run test ! -e :out"
+  if rc <> 0 then return 2
+  hashes=.string[]
+  address crexx "run shasum -a 256 :archive" output hashes
+  if rc <> 0 then return rc
+  if word(hashes.1,1) <> "6ff27e3bf022666f43f7802255be680eeff722ac181b1725d21e2e8318604ee3" then return 2
+  source=out||"/source"; install=out||"/install"
+  address crexx "mkdir -p :source :install"
+  if rc <> 0 then return rc
+  address crexx "run tar -xzf :archive -C :source"
+  if rc <> 0 then return rc
+  upstream=source||"/newlib-4.6.0.20260123"
+  location=.string[]
+  address crexx "pwd" output location
+  if rc <> 0 then return rc
+  root=strip(location.1)
+  receipt=root||"/libc/upstream-files.sha256"
+  address crexx "cd :upstream"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 -c :receipt"
+  if rc <> 0 then return rc
+  address crexx "cd :root"
+  if rc <> 0 then return rc
+  files=readlines("libc/source.sha256")
+  i=.int; target=.string
+  do i=1 to files.0
+    name=word(files[i],2)
+    from=root||"/libc/src/newlib/"||name; target=upstream||"/"||name
+    address crexx "run cp :from :target"
+    if rc <> 0 then return rc
+  end
+  receipt=root||"/libc/source.sha256"
+  address crexx "cd :upstream"
+  if rc <> 0 then return rc
+  address crexx "run shasum -a 256 -c :receipt"
+  if rc <> 0 then return rc
+  address crexx "cd :root"
+  if rc <> 0 then return rc
+  gcc=sdk||"/host/gcc"; bin=sdk||"/host/binutils"
+  target=install||"/gcc"
+  address crexx "run ln -s :gcc :target"
+  if rc <> 0 then return rc
+  target=install||"/binutils"
+  address crexx "run ln -s :bin :target"
+  if rc <> 0 then return rc
+  call lineout out||"/tools.json",'{"format":"sdk-newlib-candidate-existing-tools-v1","qualification":"existing SDK compiler; no new tools or guest qualification"}'
+  call lineout out||"/tools.json"
+  cc=gcc||"/bin/s390-linux-gnu-gcc"; cc1=gcc||"/libexec/gcc/s390-linux-gnu/16.2.0/cc1"
+  call arraydrop hashes
+  address crexx "run shasum -a 256 :archive :receipt :cc :cc1" output hashes
+  if rc <> 0 then return rc
+  do i=1 to hashes.0
+    call lineout out||"/preparation.sha256",hashes[i]
+  end
+  call lineout out||"/preparation.sha256"
+  say "NEWLIB CANDIDATE PREPARATION PASS"
+  return 0

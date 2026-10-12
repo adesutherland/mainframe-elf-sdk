@@ -88,7 +88,8 @@ static int open_records(LabCmsFile *f, const unsigned char id[18], void *buf, in
         unsigned char *fst = f->buffer;
         copy(f->filemode, fst + 24, 2);
         f->format[0] = fst[30];
-        if (f->format[0] != 0xe5 && (!fixed || f->format[0] != 0xc6)) return 20;
+        if ((unsigned char)f->format[0] != 0xe5 &&
+            (!fixed || (unsigned char)f->format[0] != 0xc6)) return 20;
         int lrecl;
         copy(&lrecl, fst + 32, 4);
         if (lrecl > cap) return 24;

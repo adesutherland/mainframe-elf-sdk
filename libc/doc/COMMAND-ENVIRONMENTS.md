@@ -6,6 +6,24 @@ query a named environment, execute a command synchronously, and close the
 client handle. Application environment registration and callbacks remain later
 work. The upstream newlib core is unchanged.
 
+`mf_command_host_execute()` is the separate synchronous native host-command
+entry. CMS opens and closes its logical CMS session around CMSCALL. TSO calls
+IKJEFTSR directly without IRXINIT, so a basic command does not require an IBM
+Rexx processor. The original session API still borrows a context for discovery
+and optional PDOS invocation. Callers must not retain an OS ENVBLOCK pointer
+across unrelated command calls; cREXX's selected driver borrows and releases it
+for each discovery/invocation. No IBM processor is initialized by this API.
+
+The current cREXX candidate also consumes generic native directory adapters:
+CMS FST snapshots and TSO binary 256-byte PDS directory records. The SDK owns
+record decoding, bounds, aliases, malformed/truncated refusal and balanced
+stream ownership. cREXX owns its library-prefix and filename-root policy.
+Canonical newlib core/extra/math archives are prepared from the checked
+official source plus the two maintained SDK overlays; no cREXX-specific libc
+stubs replace environment, pushback or mathematical routines. Candidate
+consumption records explicit archive/source hashes and does not rewrite the
+base release manifest or claim a new released SDK.
+
 The optional `mf_pdos_command_execute` extension uses the separately named
 `PDOS` vocabulary. It validates/encodes the whole command before querying
 PDOS. Absence returns MF_COMMAND_UNSUPPORTED. CMS invokes SUBCOM PDOS; TSO
@@ -130,6 +148,42 @@ The [dated qualification record](qualification/COMMAND-ENVIRONMENTS-2026-10-10.m
 distinguishes host checks from real guest outcomes. This is not yet a claim
 of complete CMS/TSO command support, Classic/PDPCLIB qualification or cREXX
 runtime integration. It includes the selected unchanged-binary PDOS runs.
+
+The ADDRESS campaign's full current G import exhausted the initial CMS31
+64 MiB application heap on real CMS at 256M virtual storage. A subsequent
+RXC -v and QUERY DISK succeeded, with the failed output still its placeholder.
+This is an application-profile capacity finding, not evidence of a CMS OS
+allocator defect. The initial revised 256 MiB heap was rejected at512M virtual
+storage during RXC -v, before ADDRESS/import processing. Real CMS20's unchanged
+CMSSTOR fixture expansion confirms the SDK's byte count, conditional flags and
+32-byte parameter lists; the modern 40-byte/fence mapping does not describe this
+old macro. The native serial oracle at 512M obtains, checks endpoints and
+releases 64/128/192 MiB blocks; 256 MiB is unavailable, final RC 4, with normal
+QUERY DISK recovery. The selected local candidate uses 192 MiB with temporary
+512M virtual storage. That small native oracle does not measure full compiler
+capacity/high-water. The full matching compiler/library chain and two B/two
+Classic runtime lifetimes now pass on real CMS31 and TSO31 and their PDOS
+emulations, with independent output/recovery and normal fleet handback. The
+selected cREXX native tools use 192 MiB heaps; the native application high-water
+remains unmeasured. Exact candidate/runtime/fixture boundaries are in CREXX's
+`docs/qa/mainframe-address-2026-10-12-runtime-qualification.md`; the Lab's dated
+operator record owns private guest receipts.
+The released/default SDK selection is unchanged.
+`build-cms-adapters.crexx` accepts an optional fifth CMS31 heap-byte argument;
+the local consumer overlay has `--cms-heap-bytes`. Both require doubleword
+alignment and 1 KiB..512 MiB, reject a 24-bit override, and record the selection.
+The overlay replaces the known `cms-c2.o` syscall member rather than appending
+a competing definition. Full Classic imports must retain the current G library.
+
+`build-tso-fault-leaf.crexx` builds the no-allocation MFFLT31 native TSO control
+from `tests/command/tso-fault-leaf.asm`. Run it only through the reviewed
+IKJEFTSR CALL path; it is not a CMSCALL containment promise. Its object is
+reproducible; XMIT transport timestamps require pinning each produced package.
+Its four arguments are the classic assembler, classic linker, fresh absolute
+output directory and independent SDK XMIT reader. The producer passes a
+basename to classic-ld and checks the exact member MFFLT31, AMODE 31 and
+RMODE ANY before freezing before/after input and output hashes. Native restore
+must also list MFFLT31 before the containment control is invoked.
 
 Interface references: IBM [CMS SUBCOM](https://www.ibm.com/docs/en/zvm/7.3?topic=functions-subcom),
 [CMSCALL](https://www.ibm.com/docs/SSB27U_7.2.0/com.ibm.zvm.v720.dmsa6/cmscall.htm),

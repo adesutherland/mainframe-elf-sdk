@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: MIT; source-built TSO31 batch candidate, no guests. */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args=.string[]
+  if args.0<>4 & args.0<>5 then do
+    say "usage: check-batch.crexx VERIFIED_SDK RUNTIME_CORE RUNTIME_EXTRAS BUILD_OUTPUT [CLASSIC_LINKER]"
+    return 2
+  end
+  sdk=args.1;core=args.2;extras=args.3;out=args.4
+  native=.string[]
+  if args.0=5 then do
+    native.1="--classic-linker";native.2=args.5
+  end
+  if left(sdk,1)<>"/" | left(out,1)<>"/" then return 2
+  location=.string[]
+  address crexx "pwd" output location
+  if rc<>0 then return rc
+  adapters=strip(location.1)||"/libc/src/adapters"
+  address crexx "run python3 -B sdk/scripts/compiler_sdk_consume.py --sdk :sdk --profile tso-zos31-v1 --tso-source tests/tso/batch-probe.c --command-adapters :adapters --tso-batch :native[] --runtime-core :core --runtime-extras :extras --member-prefix BTEST --out :out --clean"
+  if rc<>0 then return rc
+  controls=out||"/host"
+  address crexx "run mkdir -p :controls"
+  if rc<>0 then return rc
+  binary=controls||"/batch-test"
+  address crexx "run cc -std=c99 -Wall -Wextra -Werror -fsanitize=address,undefined -I tests/runtime/batch-reent -I libc/src/adapters/cms tests/runtime/batch.c libc/src/adapters/cms/text-codec.c libc/src/adapters/tso/native-path.c -o :binary"
+  if rc<>0 then return rc
+  address crexx "run :binary"
+  if rc<>0 then return rc
+  entry=out||"/command-entry.obj";check=out||"/batch-entry-check.json"
+  address crexx "run python3 -B sdk/scripts/tso_entry_source_check.py --bits 31 --batch --entry :entry --out :check"
+  if rc<>0 then return rc
+  addressout=out||"/address"
+  candidate=out||"/candidate-sdk"
+  address crexx "run python3 -B sdk/scripts/compiler_sdk_consume.py --sdk :candidate --profile tso-zos31-v1 --tso-source tests/tso/batch-address.c --member-prefix BADDR --out :addressout --clean"
+  return rc

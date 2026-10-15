@@ -14,9 +14,12 @@ from pathlib import Path
 from tso31_deck_check import EXPECTED_SERVICES, check_deck
 
 
-def check_source_entry(path: Path, bits: int, amode: int | None = None) -> dict:
+def check_source_entry(path: Path, bits: int, amode: int | None = None,
+                       batch: bool = False) -> dict:
     if bits not in (24, 31, 64):
         raise ValueError(f"unsupported entry width: {bits}")
+    if batch and bits != 31:
+        raise ValueError("batch entry is the explicit TSO31 variant")
     if amode is None:
         amode = bits
     if amode != bits and (bits, amode) != (64, 31):
@@ -47,7 +50,7 @@ def check_source_entry(path: Path, bits: int, amode: int | None = None) -> dict:
     # conditional storage options come from the public register interfaces
     # recorded in z-pdos/tso31-bridge/doc/architecture/SERVICES.md.
     patterns = {"SVC 120": (bytes.fromhex("0a78"), 6),
-                "SVC 93": (bytes.fromhex("0a5d"), 2),
+                "SVC 93": (bytes.fromhex("0a5d"), 0 if batch else 2),
                 "SVC 99": (bytes.fromhex("0a63"), 1)}
     if bits < 64:
         patterns["below-line GETMAIN"] = (bytes.fromhex("1b1141f000100a78"),
@@ -73,18 +76,19 @@ def check_source_entry(path: Path, bits: int, amode: int | None = None) -> dict:
         if actual != expected:
             raise ValueError(f"{label}: expected {expected}, found {actual}")
     return {"format": "mainframe-elf-sdk-tso-entry-source-v1", "profile_bits": bits,
-            "amode": amode,
+            "amode": amode, "batch": batch,
             "entry": info, "independent_service_patterns": sorted(patterns)}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bits", type=int, choices=(24, 31, 64), required=True)
+    parser.add_argument("--batch", action="store_true")
     parser.add_argument("--amode", type=int, choices=(31, 64))
     parser.add_argument("--entry", type=Path, required=True)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
-    result = check_source_entry(args.entry.resolve(strict=True), args.bits, args.amode)
+    result = check_source_entry(args.entry.resolve(strict=True), args.bits, args.amode, args.batch)
     if args.out:
         args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     print(f"TSO{args.bits} source entry mode, closure and service instructions PASS")

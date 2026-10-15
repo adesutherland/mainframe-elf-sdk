@@ -1,5 +1,16 @@
 # SDK C library backlog
 
+## LIBC-007: Shared TSO31 batch runtime
+
+- Type: implementation and qualification
+- Status: Done for the selected local TSO31 batch profile; release remains separate
+- Authorization: Adrian authorised the shared SDK/cREXX batch package and native z/OS reference to complete PD-033 Stage 3 on 14 October.
+- Target: Direct MVS TSO31 entry, prebound standard DDs and native TSO command facility; preserve foreground entry.
+- Implementation: [Batch contract](BATCH-TSO31.md), explicit version-8 entry, standard stream ownership/codecs, private SDK overlay, C probes and cREXX package consumer.
+- Evidence: C99 ASan/UBSan stream/encoding/startup/failure/foreground controls and Classic source entry/export checks pass. Paired native z/OS 1.5 and PDOS line/model2 results passed on 14 October.
+- Current result (14 October): The reviewed shared package passed the selected native z/OS 1.5 matrix: exact standard/Unicode/binary DDs, four tool interfaces, fresh compile/assemble/link/run, positive failure codes and skipped dependent work, background TSO ADDRESS and compiler-exit PARSE. Classic Linker's 253-byte XMIT boundary repair fixed native extraction; RXVM's CLI input-load failure now returns 2 rather than negative 1. PDOS line/model2 passed 30/34 assertions, with independently decoded RESULT/OBJ/LINK/AOBJ/POBJ byte-identical to z/OS and normal resource handback. Keep result summaries only; do not retain obsolete disks, dumps or detailed receipts.
+- Acceptance: Identical package bytes on PDOS and a named native z/OS guest, exact DD text/binary outputs, fresh compiler/assembler/linker/VM and compiler-exit work, truthful failure/skip/RC, native ADDRESS context, no terminal input theft and independently checked handback. Release remains separate.
+
 ## LIBC-006: Native command-environment clients
 
 - Type: implementation and qualification

@@ -125,11 +125,14 @@ def compile_one(sdk: Path, profile: str, source: Path, output: Path,
 
 
 def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path,
-                      cms_heap_bytes: int | None = None) -> tuple[Path, dict]:
+                      cms_heap_bytes: int | None = None, tso_batch: bool = False,
+                      classic_linker: Path | None = None) -> tuple[Path, dict]:
     """Stage reviewed adapter sources over a verified SDK without changing it.
 
     The cREXX qualification recipe owns this bounded workflow. Libraries,
     compiler, exporters and native file services remain verified base inputs.
+    A TSO31 batch overlay may explicitly select a rebuilt maintained native
+    linker; its identity joins the candidate source/input summary.
     This is a local candidate, not a release package or guest result.
     """
     stage = out / "candidate-sdk"
@@ -142,11 +145,20 @@ def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path,
                 "tso/sdk-application.c")]
     if cms_heap_bytes is not None:
         sources.append(adapters / "cms/newlib_syscalls.c")
+    if tso_batch:
+        sources.extend(adapters / name for name in ("tso/io.c", "tso/entry31-batch.asm"))
     identities = {}
+    if classic_linker is not None:
+        identities[str(classic_linker)] = sha(classic_linker)
+        shutil.copy2(classic_linker, stage / "host/classic/bin/mf-classic-ld")
     for path in sources:
         identities[str(path)] = sha(path)
         target = stage / "adapters" / path.relative_to(adapters)
         shutil.copyfile(path, target)
+    if tso_batch:
+        checker = Path(__file__).with_name("tso_entry_source_check.py")
+        identities[str(checker)] = sha(checker)
+        shutil.copyfile(checker, stage / "tools/tso_entry_source_check.py")
     shutil.copyfile(adapters / "command.h", stage / "sysroots" / profile /
                     "include/command.h")
     shutil.copyfile(adapters / "tso/sdk-application.c", stage / "adapters/tso/application.c")
@@ -189,8 +201,13 @@ def command_candidate(sdk: Path, profile: str, adapters: Path, out: Path,
         run(stage / "host/binutils/bin/s390-linux-gnu-ar", "rcsD", archive, *objects)
     else:
         entry = out / "command-entry.obj"
-        run(stage / "host/classic/bin/mf-classic-as", "--profile", "z900",
-            stage / "adapters/tso/entry31-any.asm", entry)
+        source = stage / "adapters/tso/entry31-any.asm"
+        if tso_batch:
+            source = out / "batch-entry.asm"
+            source.write_text((adapters / "tso/entry31-batch.asm").read_text()+
+                              (adapters / "tso/entry31-any.asm").read_text())
+        run(stage / "host/classic/bin/mf-classic-as", "--profile", "z900", "--macros",
+            source, entry)
         shutil.copyfile(entry, stage / "native/source/tso31-any-entry.obj")
     return stage, {"source_files_sha256": identities,
                    "cms_heap_bytes": cms_heap_bytes,
@@ -343,6 +360,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--sdk", type=Path)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--clean", action="store_true",
+                   help="rebuild in an existing consumer-owned output directory")
     p.add_argument("--profile", choices=(*PROFILES, "all"), default="all")
     p.add_argument("--tso-source", type=Path,
                    help="compile a supplied C consumer for one TSO profile")
@@ -350,6 +369,10 @@ def main() -> None:
                    help="compile a supplied C consumer for one CMS profile")
     p.add_argument("--command-adapters", type=Path,
                    help="stage maintained command adapters over a verified CMS31/TSO31 SDK")
+    p.add_argument("--tso-batch", action="store_true",
+                   help="TSO31 direct MVS entry with SYSIN/SYSPRINT/SYSTERM DD streams")
+    p.add_argument("--classic-linker", type=Path,
+                   help="explicit maintained native linker for a local TSO31 batch overlay")
     p.add_argument("--cms-heap-bytes", type=int,
                    help="explicit CMS31 application heap for a local command-adapter candidate")
     p.add_argument("--runtime-core", type=Path,
@@ -394,17 +417,41 @@ def main() -> None:
         p.error("the SDK file smoke requires TSO31 or TSO64; "
                 "TSO24 dataset I/O is not in the 0.1.0 file profile")
     sdk = a.sdk.resolve(strict=True)
+    if a.tso_batch and (a.profile != "tso-zos31-v1" or not a.command_adapters):
+        p.error("--tso-batch requires TSO31 and maintained --command-adapters")
+    if a.classic_linker is not None:
+        if not a.tso_batch:
+            p.error("--classic-linker requires --tso-batch")
+        a.classic_linker = a.classic_linker.resolve(strict=True)
+        if not a.classic_linker.is_file() or not os.access(a.classic_linker, os.X_OK):
+            p.error("--classic-linker must name an executable file")
     out = a.out.resolve()
+    inputs = [sdk, a.command_adapters, a.runtime_core, a.runtime_extras,
+              a.tso_source, a.cms_source, a.classic_linker]
+    for path in inputs:
+        if path is not None:
+            path = path.resolve(strict=True)
+            if out == path or out in path.parents:
+                p.error("consumer output contains an input")
+    if a.out.is_symlink():
+        p.error("consumer output must not be a symlink")
+    marker = out / ".sdk-consumer-build"
     if out.exists():
-        p.error("refusing existing consumer output")
+        if not a.clean:
+            p.error("existing consumer output; use --clean to rebuild")
+        if not out.is_dir() or not marker.is_file():
+            p.error("refusing to clean output not owned by this consumer")
     receipt = verify(sdk)
     base_manifest_sha256 = sha(sdk / "SDK-MANIFEST.json")
+    if out.exists():
+        shutil.rmtree(out)
     out.mkdir(parents=True)
+    marker.write_text("mainframe-compiler-sdk-consumer-v1\n")
     overlay = None
     if a.command_adapters:
         sdk, overlay = command_candidate(sdk, a.profile,
                                          a.command_adapters.resolve(strict=True), out,
-                                         a.cms_heap_bytes)
+                                         a.cms_heap_bytes, a.tso_batch, a.classic_linker)
         if a.runtime_core:
             runtime = [a.runtime_core / "libnewlib.a",
                        a.runtime_extras / "libextra.a", a.runtime_extras / "libm-extra.a"]
@@ -414,6 +461,23 @@ def main() -> None:
                 run(sdk / "host/bin/s370_check", "input", a.profile, path)
                 overlay["runtime_candidate_sha256"][str(path)] = sha(path)
                 shutil.copyfile(path, sdk / "sysroots" / a.profile / "lib" / path.name)
+        if a.tso_batch:
+            manifest = json.loads((sdk / "SDK-MANIFEST.json").read_text())
+            shutil.copyfile(sdk / "SDK-MANIFEST.json", out / "BASE-SDK-MANIFEST.json")
+            manifest["development_overlay"] = {
+                "purpose": "PD-033 TSO31 batch candidate; unpublished",
+                "base_manifest_sha256": base_manifest_sha256,
+                "entry_service_version": 8,
+                "standard_dds": ["SYSIN", "SYSPRINT", "SYSTERM"],
+                "standard_encoding": "UTF-8 C bytes and IBM1047 records",
+                "native_linker_sha256": sha(sdk / "host/classic/bin/mf-classic-ld"),
+            }
+            manifest["files_sha256"] = {
+                str(path.relative_to(sdk)): sha(path) for path in sorted(sdk.rglob("*"))
+                if path.is_file() and path != sdk / "SDK-MANIFEST.json"
+            }
+            (sdk / "SDK-MANIFEST.json").write_text(json.dumps(manifest, indent=2, sort_keys=True)+"\n")
+            overlay["batch_sdk_manifest_sha256"] = sha(sdk / "SDK-MANIFEST.json")
     selected = PROFILES if a.profile == "all" else (a.profile,)
     results = {}
     for profile in selected:

@@ -38,7 +38,7 @@ main: procedure = .int
   if rc <> 0 then return rc
   address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 24 --entry :entry24 --out :receipt24"
   if rc <> 0 then return rc
-  address crexx "run :as_tool --profile z900 libc/src/adapters/tso/entry31-any.asm :entry31"
+  address crexx "run :as_tool --profile z900 --macros libc/src/adapters/tso/entry31-any.asm :entry31"
   if rc <> 0 then return rc
   address crexx "run python3 sdk/scripts/tso_entry_source_check.py --bits 31 --entry :entry31 --out :receipt31"
   if rc <> 0 then return rc

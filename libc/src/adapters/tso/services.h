@@ -8,6 +8,7 @@
 #define LAB_TSO_SERVICE_VERSION 6U
 #define LAB_TSO_COMMAND_SERVICE_VERSION 7U
 #endif
+#define LAB_TSO_BATCH_SERVICE_VERSION 8U
 typedef unsigned int LabTsoWord;
 #define LAB_TSO_PUTLINE_RAW 0x00524157U
 typedef struct {
@@ -41,6 +42,7 @@ static inline int lab_tso_filecall(LabTsoWord operation,const void *args)
 /* filecall: 0 open, 1 read, 2 write, 3 close, 4 allocate DD, 5 free DD.
    0--4 use the pinned MVSSUPA parameter layouts. 5 takes an EBCDIC DD[8]. */
 int lab_tso_io_finish(void);
+int lab_tso_io_start(void);
 unsigned lab_tso_heap_used(void);
 int lab_tso_last_open_status(void);
 #endif

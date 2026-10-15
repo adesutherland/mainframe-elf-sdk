@@ -44,10 +44,25 @@ typedef struct {
     void *handle;
     unsigned char dd[8], member[8], *buffer;
     unsigned capacity, used, at, available, position;
-    int active, dynamic, writing, text, recfm, lrecl, blksize, eof, failed;
+    int active, dynamic, writing, text, recfm, lrecl, blksize, eof, failed, standard;
     LabUtf8 decoder;
 } Slot;
 static Slot slots[SLOTS];
+static int standard_fd[3]={-1,-1,-1};
+static int standard_ready;
+static int batch_mode(void)
+{
+#ifdef __MAINFRAME_LAB_TSO64__
+    return 0;
+#else
+    return lab_tso_services && lab_tso_services->version==LAB_TSO_BATCH_SERVICE_VERSION;
+#endif
+}
+static int stream_fd(int fd)
+{
+    if (batch_mode() && fd>=0 && fd<=2) return standard_fd[fd];
+    return fd;
+}
 static unsigned char *heap;
 static unsigned heap_used;
 static unsigned heap_failed_request;
@@ -199,6 +214,18 @@ fail:
       if (s->dynamic) lab_tso_filecall(5,s->dd);
       memset(s,0,sizeof *s);return error(e); }
 }
+int lab_tso_io_start(void)
+{
+    static const char *names[]={"DD:SYSIN","DD:SYSPRINT","DD:SYSTERM"};
+    if (!batch_mode()) return 0;
+    if (standard_ready) return error(EBUSY);
+    for (unsigned i=0;i<3;++i) {
+        standard_fd[i]=open_stream(names[i],i!=0,1);
+        if (standard_fd[i]<3) return -1;
+        slots[standard_fd[i]-3].standard=1;
+    }
+    standard_ready=1;return 0;
+}
 int _open(const char *p,int flags,...)
 {
     if (flags==O_RDONLY) return open_stream(p,0,0);
@@ -241,7 +268,7 @@ static int record(Slot *s)
     if (s->text) {
         /* Preserve fixed-record padding; lexical readers may ignore it. */
         for (unsigned i=start;i<n;++i) {
-            if (text_conversion_enabled) {
+            if (text_conversion_enabled || s->standard) {
                 unsigned char bytes[2];
                 unsigned count=lab_1047_utf8(raw[i],bytes);
                 if (!bytes[0]) return error(EILSEQ);
@@ -292,7 +319,8 @@ _ssize_t _read(int fd,void *out,size_t length)
 #ifdef LAB_TSO24
     if (!low_buffer(out,length)) return error(EFAULT);
 #endif
-    if (fd==0) return read_terminal(out,length);
+    if (fd==0 && !batch_mode()) return read_terminal(out,length);
+    fd=stream_fd(fd);
     Slot *s=get(fd);unsigned done=0;
     if (!s) return -1;
     if (s->writing) return error(EBADF);
@@ -354,6 +382,8 @@ _ssize_t _write(int fd,const void *input,size_t length)
 #endif
     const unsigned char *bytes=input;
     Slot *s=0;
+    int standard_output=batch_mode() && (fd==1 || fd==2);
+    fd=stream_fd(fd);
     if (length>INT_MAX) return error(EINVAL);
     if (fd!=1 && fd!=2) {
         s=get(fd);if (!s) return -1;
@@ -363,19 +393,23 @@ _ssize_t _write(int fd,const void *input,size_t length)
     for (unsigned i=0;i<length;++i) {
         if (!s || s->text) {
             unsigned scalar=0;
-            int rc=text_conversion_enabled ?
+            int convert=text_conversion_enabled || (s && s->standard);
+            int rc=convert ?
                 lab_utf8_byte(s?&s->decoder:&console_decoder,bytes[i],&scalar) :
                 (scalar=bytes[i],1);
-            if (rc<0 || (text_conversion_enabled && rc && !scalar)) goto bad_encoding;
+            if (rc<0 || (convert && rc && !scalar)) goto bad_encoding;
             if (!rc) continue;
             if (scalar=='\n') {
                 if (s ? emit(s) : putline()) return -1;
                 continue;
             }
-            int native=text_conversion_enabled ? lab_unicode_1047(scalar) : (int)scalar;
+            int native=convert ? lab_unicode_1047(scalar) : (int)scalar;
             if (native<0) goto bad_encoding;
             if (s) {
-                if (s->used==s->capacity) { s->failed=EOVERFLOW;return error(EOVERFLOW); }
+                if (s->used==s->capacity) {
+                    if (standard_output) { if (emit(s)) return -1; }
+                    else { s->failed=EOVERFLOW;return error(EOVERFLOW); }
+                }
                 s->buffer[4+s->used++]=(unsigned char)native;
             } else {
                 if (line_used==sizeof line && putline()) return -1;
@@ -395,6 +429,8 @@ bad_encoding:
 }
 int _close(int fd)
 {
+    int standard=batch_mode() && fd>=0 && fd<=2 ? fd : -1;
+    fd=stream_fd(fd);
     Slot *s=get(fd);int e;
     if (!s) return -1;
     e=s->failed;
@@ -403,10 +439,12 @@ int _close(int fd)
     if (close_native(s) && !e) e=errno;
     if (s->dynamic && lab_tso_filecall(5,s->dd) && !e) e=EIO;
     free(s->buffer);memset(s,0,sizeof *s);
+    if (standard>=0) standard_fd[standard]=-1;
     return e?error(e):0;
 }
 off_t _lseek(int fd,off_t offset,int whence)
 {
+    fd=stream_fd(fd);
     Slot *s=get(fd);
     unsigned target;
     unsigned char discard[256];
@@ -454,7 +492,8 @@ int _fstat(int fd,struct stat *st)
     memset(st,0,sizeof *st);
     /* Record streams have no cheap POSIX size. S_IFIFO disables newlib's
        regular-file seek shortcut; _lseek still implements bounded scans. */
-    st->st_mode=fd<=2?S_IFCHR:S_IFIFO;st->st_blksize=256;
+    if (batch_mode() && fd<=2 && standard_fd[fd]<3) return error(EBADF);
+    st->st_mode=fd<=2 && !batch_mode()?S_IFCHR:S_IFIFO;st->st_blksize=256;
     return 0;
 }
 int stat(const char *path,struct stat *st)
@@ -478,7 +517,7 @@ int rename(const char *from,const char *to)
 { (void)from;(void)to;return error(ENOTSUP); }
 int _isatty(int fd)
 {
-    if (fd>=0 && fd<=2) return 1;
+    if (fd>=0 && fd<=2) return batch_mode()?0:1;
     if (get(fd)) error(ENOTTY);
     return 0;
 }
@@ -523,7 +562,8 @@ static void report_heap(void)
         do { digits[n++]=(char)('0'+value%10);value/=10; } while (value);
         while (n) report[at++]=digits[--n];
     }
-    lab_tso_services->putline(report,at,0);
+    if (!batch_mode()) lab_tso_services->putline(report,at,0);
+    else if (standard_ready) _write(2,report,at);
     {
         const char *label="TSO HEAP BASE=0x";
         uintptr_t value=(uintptr_t)heap;
@@ -532,7 +572,8 @@ static void report_heap(void)
         while (*label) report[at++]=*label++;
         for (unsigned i=sizeof(value)*2;i>0;--i)
             report[at++]=hex[(value>>((i-1)*4))&15U];
-        lab_tso_services->putline(report,at,0);
+        if (!batch_mode()) lab_tso_services->putline(report,at,0);
+        else if (standard_ready) _write(2,report,at);
     }
 #endif
 }
@@ -546,5 +587,7 @@ int lab_tso_io_finish(void)
         if (slots[i].active && _close((int)i+3)) failed=1;
     if (heap && lab_tso_services->release(heap,HEAP_SIZE)) failed=1;
     heap=0;
+    heap_used=0;standard_ready=0;
+    for (unsigned i=0;i<3;++i) standard_fd[i]=-1;
     return failed?-1:0;
 }

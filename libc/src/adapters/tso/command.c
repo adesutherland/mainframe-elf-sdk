@@ -17,7 +17,8 @@ static int mf_tso_command_call(const unsigned char name[8], unsigned long *p,
                                 unsigned long env, int *load_rc)
 {
     if (!lab_tso_services ||
-        lab_tso_services->version != LAB_TSO_COMMAND_SERVICE_VERSION ||
+        (lab_tso_services->version != LAB_TSO_COMMAND_SERVICE_VERSION &&
+         lab_tso_services->version != LAB_TSO_BATCH_SERVICE_VERSION) ||
         !lab_tso_services->commandcall) { *load_rc = -1; return -1; }
     return lab_tso_services->commandcall(name, p, env, load_rc);
 }

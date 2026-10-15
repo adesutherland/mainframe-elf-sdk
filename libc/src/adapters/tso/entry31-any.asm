@@ -3,6 +3,7 @@
 * Hosted TSO31 bridge. PDPCLIB entries stay native.
 * Private, non-reentrant, synchronous invocation; no IBM LE dependency.
 * Selected explicit services follow z-pdos/tso31-bridge/src/entry31.asm.
+         GBLB  &SDKBT
 LABTSO  CSECT
 LABTSO  AMODE 31
 LABTSO  RMODE ANY
@@ -95,6 +96,7 @@ PUTBASE  EQU   *
          DROP  1
          USING LABTSO,12
          LA    13,ENTRYSA
+         AIF   (&SDKBT).BPUT
          LR    8,3
          LTR   8,8
          BZ    PUTOK
@@ -117,6 +119,7 @@ PUTNTR   EQU   *
          SVC   SVCTERM
 PUTOK    SR    2,2
          B     PUTRET
+.BPUT    ANOP
 PUTBAD   LA    2,1
 PUTRET   LM    6,15,SVCSAVE
          BR    14
@@ -209,6 +212,7 @@ INBASE   EQU   *
          LR    8,4
          SR    0,0
          ST    0,0(8)
+         AIF   (&SDKBT).BIN
          LTR   7,7
          BNP   INBAD
          CL    7,=F'256'
@@ -240,6 +244,7 @@ INCOPY   MVC   0(1,6),0(9)
          LA    9,1(9)
          BCT   10,INCOPY
          B     INRET
+.BIN     ANOP
 INBAD    LA    2,16
 INRET    LM    6,15,SVCSAVE
          BR    14
@@ -317,7 +322,12 @@ CMDDONE  LR    2,15
 CMDRET   DC    X'80000000'
 CMDENTRY DC    A(ENTRYSA)
 CMDSTACK DC    H'256'
+         AIF   (&SDKBT).BTABLE
 SVCTAB   DC    F'7',A(PUTLINE),A(ALLOCATE),A(RELEASE)
+         AGO   .ETABLE
+.BTABLE  ANOP
+SVCTAB   DC    F'8',A(PUTLINE),A(ALLOCATE),A(RELEASE)
+.ETABLE  ANOP
          DC    A(FILECALL),A(FINISH),A(READLINE),A(GETSTATE)
          DC    A(COMMANDC)
 FILESVC  DC    V(@@AOPEN),V(@@AREAD),V(@@AWRITE),V(@@ACLOSE)

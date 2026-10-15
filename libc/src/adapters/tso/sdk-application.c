@@ -1,6 +1,7 @@
 /* Single synchronous TSO CALL. Newlib owns normal exit/atexit/FILE cleanup. */
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
 #include "services.h"
 #include "text-codec.h"
 #ifndef LAB_TSO_PROGRAM
@@ -17,7 +18,9 @@ void _exit(int status)
 }
 void abort(void)
 {
-    lab_tso_services->putline("C ABORT",7,0);
+    if (lab_tso_services->version==LAB_TSO_BATCH_SERVICE_VERSION)
+        fputs("C ABORT\n",stderr);
+    else lab_tso_services->putline("C ABORT",7,0);
     _exit(12);
 }
 
@@ -37,6 +40,7 @@ int lab_tso_start(const unsigned char *raw, unsigned length,
 #else
     if (!services || (services->version!=3 && services->version!=4 &&
                       services->version!=5 && services->version!=7 &&
+                      services->version!=LAB_TSO_BATCH_SERVICE_VERSION &&
                       services->version!=LAB_TSO_SERVICE_VERSION)) return 12;
 #endif
     lab_tso_services=services;
@@ -73,5 +77,6 @@ int lab_tso_start(const unsigned char *raw, unsigned length,
         text[used++]=0;
     }
     argv[argc]=0;
+    if (lab_tso_io_start()) { lab_tso_io_finish(); return 16; }
     exit(main(argc,argv));
 }
